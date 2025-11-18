@@ -1,0 +1,5 @@
+package com.intramural.scheduling.view;
+
+public class LoginView {
+
+}
