@@ -151,12 +151,11 @@ public class LoginView {
             return;
         }
 
-        // TODO: Implement actual authentication
+        // TODO: Implement actual authentication with database
         // For now, just simulate login
         if (username.equals("admin") && password.equals("admin")) {
             showSuccess("Login successful!");
-            // Navigate to dashboard
-            // openDashboard();
+            openDashboard(username);
         } else {
             showError("Invalid username or password");
         }
@@ -172,9 +171,11 @@ public class LoginView {
         messageLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-size: 12px;");
     }
 
-    // Method to open dashboard (to be implemented)
-    private void openDashboard() {
-        // Will implement this when we create the dashboard
-        System.out.println("Opening dashboard...");
+    // Method to open dashboard
+    private void openDashboard(String username) {
+        AdminDashboard dashboard = new AdminDashboard(primaryStage, username);
+        Scene dashboardScene = dashboard.createScene();
+        primaryStage.setScene(dashboardScene);
+        primaryStage.setTitle("Employee Scheduling System - Dashboard");
     }
 }
