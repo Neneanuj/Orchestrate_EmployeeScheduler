@@ -1,6 +1,5 @@
 package com.intramural.scheduling;
 
-import com.intramural.scheduling.view.EmployeesPage;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
