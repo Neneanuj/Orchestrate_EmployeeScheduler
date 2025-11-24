@@ -1,25 +1,21 @@
 package com.intramural.scheduling;
 
-import com.intramural.scheduling.view.LoginView;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
-public class Main extends Application {
+public class TestEmployees extends Application {
 
     @Override
     public void start(Stage primaryStage) {
         try {
-            // Set up the window
-            primaryStage.setTitle("Employee Scheduling System - Login");
+            primaryStage.setTitle("Employee Scheduling System - Employees");
             
-            // Create and show login view
-            LoginView loginView = new LoginView(primaryStage);
-            Scene scene = loginView.createScene();
+            EmployeesPage employeesPage = new EmployeesPage(primaryStage, "Admin");
+            Scene scene = employeesPage.createScene();
             
             primaryStage.setScene(scene);
-            primaryStage.setResizable(true);
-            primaryStage.centerOnScreen();
+            primaryStage.setMaximized(true);
             primaryStage.show();
             
         } catch (Exception e) {

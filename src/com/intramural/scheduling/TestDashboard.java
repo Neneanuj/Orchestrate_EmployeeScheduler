@@ -1,25 +1,25 @@
 package com.intramural.scheduling;
 
-import com.intramural.scheduling.view.LoginView;
+import com.intramural.scheduling.view.AdminDashboard;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
-public class Main extends Application {
+public class TestDashboard extends Application {
 
     @Override
     public void start(Stage primaryStage) {
         try {
             // Set up the window
-            primaryStage.setTitle("Employee Scheduling System - Login");
+            primaryStage.setTitle("Employee Scheduling System - Dashboard");
             
-            // Create and show login view
-            LoginView loginView = new LoginView(primaryStage);
-            Scene scene = loginView.createScene();
+            // Create and show dashboard directly (no login)
+            AdminDashboard dashboard = new AdminDashboard(primaryStage, "Admin");
+            Scene scene = dashboard.createScene();
             
             primaryStage.setScene(scene);
             primaryStage.setResizable(true);
-            primaryStage.centerOnScreen();
+            primaryStage.setMaximized(true);  // Open maximized to see full design
             primaryStage.show();
             
         } catch (Exception e) {
