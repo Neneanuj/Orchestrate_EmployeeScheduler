@@ -1,3 +1,10 @@
+application.properties
+**/application.properties
+resources/config/application.properties
+
+# Keep the template (no passwords)
+!application.properties.template
+
 # Compiled class file
 *.class
 
