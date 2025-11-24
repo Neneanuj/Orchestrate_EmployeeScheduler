@@ -145,6 +145,10 @@ public class EmployeesPage {
         addBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; " +
                 "-fx-background-radius: 6; -fx-padding: 12 24 12 24; -fx-cursor: hand; " +
                 "-fx-font-size: 14px; -fx-font-weight: bold;");
+        addBtn.setOnAction(e -> {
+            AddEmployeeModal modal = new AddEmployeeModal(primaryStage);
+            modal.show();
+        });
 
         HBox buttonBox = new HBox(15);
         buttonBox.getChildren().addAll(exportBtn, addBtn);
