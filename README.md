@@ -132,7 +132,7 @@ The main goal was to automate the tedious parts of scheduling while catching con
 
 ### What You'll Need
 
-- Java 17 or higher
+- Java 21 or higher
 - SQL Server (I'm using 2019)
 - JavaFX SDK 21
 - An IDE (I use VS Code but IntelliJ works too)
