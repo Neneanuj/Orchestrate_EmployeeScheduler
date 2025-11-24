@@ -156,6 +156,10 @@ public class ScheduleBuilder {
         createShiftBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; " +
                 "-fx-background-radius: 6; -fx-padding: 12 24 12 24; -fx-cursor: hand; " +
                 "-fx-font-size: 14px; -fx-font-weight: bold;");
+        createShiftBtn.setOnAction(e -> {
+            CreateShiftModal modal = new CreateShiftModal(primaryStage);
+            modal.show();
+        });
         createShiftBtn.setOnMouseEntered(e -> createShiftBtn.setStyle(
                 "-fx-background-color: #2980b9; -fx-text-fill: white; -fx-background-radius: 6; " +
                 "-fx-padding: 12 24 12 24; -fx-cursor: hand; -fx-font-size: 14px; -fx-font-weight: bold;"));
@@ -409,8 +413,12 @@ public class ScheduleBuilder {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        VBox badgeBox = new VBox(8);
-        badgeBox.setAlignment(Pos.CENTER_RIGHT);
+        VBox rightBox = new VBox(8);
+        rightBox.setAlignment(Pos.CENTER_RIGHT);
+
+        // Badges
+        HBox badgeRow = new HBox(8);
+        badgeRow.setAlignment(Pos.CENTER_RIGHT);
 
         Label statusBadge = new Label(badge);
         statusBadge.setFont(Font.font("Arial", 11));
@@ -426,9 +434,39 @@ public class ScheduleBuilder {
         staffStatusBadge.setStyle("-fx-background-color: " + statusColor + "; -fx-text-fill: white; " +
                 "-fx-background-radius: 15;");
 
-        badgeBox.getChildren().addAll(statusBadge, staffStatusBadge);
+        badgeRow.getChildren().addAll(statusBadge, staffStatusBadge);
 
-        card.getChildren().addAll(infoBox, spacer, badgeBox);
+        // View Staff Button
+        Button viewStaffBtn = new Button("👥 View Staff");
+        viewStaffBtn.setPrefWidth(120);
+        viewStaffBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; " +
+                "-fx-background-radius: 6; -fx-padding: 6 12 6 12; -fx-cursor: hand; " +
+                "-fx-font-size: 12px; -fx-font-weight: bold;");
+        viewStaffBtn.setOnMouseEntered(e -> viewStaffBtn.setStyle(
+                "-fx-background-color: #2980b9; -fx-text-fill: white; -fx-background-radius: 6; " +
+                "-fx-padding: 6 12 6 12; -fx-cursor: hand; -fx-font-size: 12px; -fx-font-weight: bold;"));
+        viewStaffBtn.setOnMouseExited(e -> viewStaffBtn.setStyle(
+                "-fx-background-color: #3498db; -fx-text-fill: white; -fx-background-radius: 6; " +
+                "-fx-padding: 6 12 6 12; -fx-cursor: hand; -fx-font-size: 12px; -fx-font-weight: bold;"));
+        
+        viewStaffBtn.setOnAction(e -> showStaffForShift(title, location + " • " + time));
+
+        rightBox.getChildren().addAll(badgeRow, viewStaffBtn);
+
+        card.getChildren().addAll(infoBox, spacer, rightBox);
         return card;
+    }
+
+    private void showStaffForShift(String shiftName, String details) {
+        // Sample assigned staff data
+        String[][] assignedStaff = {
+            {"Sarah Johnson", "Senior Referee", "Basketball, Soccer", "+1 (555) 123-4567"},
+            {"Michael Chen", "Event Coordinator", "Football, Baseball", "+1 (555) 234-5678"},
+            {"Emily Rodriguez", "Team Lead", "Hockey, Volleyball", "+1 (555) 345-6789"},
+            {"David Park", "Sports Official", "Tennis, Badminton", "+1 (555) 456-7890"}
+        };
+        
+        ViewStaffModal modal = new ViewStaffModal(primaryStage, shiftName, details, assignedStaff);
+        modal.show();
     }
 }

@@ -1,4 +1,4 @@
-package com.intramural.scheduling;
+package com.intramural.scheduling.view;
 
 import javafx.application.Application;
 import javafx.scene.Scene;
