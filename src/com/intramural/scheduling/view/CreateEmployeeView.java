@@ -3,7 +3,6 @@ package com.intramural.scheduling.view;
 import com.intramural.scheduling.dao.SportDAO;
 import com.intramural.scheduling.model.*;
 import com.intramural.scheduling.service.EmployeeManagementService;
-import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -18,11 +17,7 @@ import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.*;
 
-/**
- * AddEmployeeModal - Called by AdminDashboard
- * Creates employees with availability and sport expertise
- */
-public class AddEmployeeModal {
+public class CreateEmployeeView {
     private Stage dialogStage;
     private TextField firstNameField, lastNameField;
     private CheckBox supervisorCheckBox;
@@ -33,13 +28,12 @@ public class AddEmployeeModal {
     private EmployeeManagementService employeeService;
     private SportDAO sportDAO;
     private Runnable onSuccess;
-    private Employee createdEmployee;
 
-    public AddEmployeeModal(Stage parentStage) {
+    public CreateEmployeeView(Stage parentStage) {
         dialogStage = new Stage();
         dialogStage.initModality(Modality.APPLICATION_MODAL);
         dialogStage.initOwner(parentStage);
-        dialogStage.setTitle("Add New Employee");
+        dialogStage.setTitle("Create New Employee");
         
         employeeService = new EmployeeManagementService();
         sportDAO = new SportDAO();
@@ -51,10 +45,6 @@ public class AddEmployeeModal {
     
     public void setOnSuccess(Runnable callback) {
         this.onSuccess = callback;
-    }
-    
-    public Employee getCreatedEmployee() {
-        return createdEmployee;
     }
     
     private void loadSports() {
@@ -101,7 +91,7 @@ public class AddEmployeeModal {
     private VBox createHeader() {
         VBox header = new VBox(8);
         
-        Label titleLabel = new Label("Add New Employee");
+        Label titleLabel = new Label("Create New Employee");
         titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 28));
         titleLabel.setStyle("-fx-text-fill: #1f2937;");
 
@@ -122,8 +112,8 @@ public class AddEmployeeModal {
         sectionTitle.setFont(Font.font("Arial", FontWeight.BOLD, 18));
 
         HBox nameRow = new HBox(15);
-        firstNameField = createStyledTextField("John");
-        lastNameField = createStyledTextField("Doe");
+        firstNameField = createStyledTextField("First Name*", "John");
+        lastNameField = createStyledTextField("Last Name*", "Doe");
         HBox.setHgrow(firstNameField, Priority.ALWAYS);
         HBox.setHgrow(lastNameField, Priority.ALWAYS);
         nameRow.getChildren().addAll(firstNameField, lastNameField);
@@ -233,7 +223,7 @@ public class AddEmployeeModal {
         return row;
     }
     
-    private TextField createStyledTextField(String example) {
+    private TextField createStyledTextField(String prompt, String example) {
         TextField field = new TextField();
         field.setPromptText(example);
         field.setStyle("-fx-font-size: 14px; -fx-pref-height: 40px; " +
@@ -261,27 +251,28 @@ public class AddEmployeeModal {
                           "-fx-background-radius: 6; -fx-font-weight: bold;");
         cancelBtn.setOnAction(e -> dialogStage.close());
 
-        Button addBtn = new Button("Add Employee");
-        addBtn.setPrefWidth(170);
-        addBtn.setPrefHeight(45);
-        addBtn.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; " +
+        Button createBtn = new Button("Create Employee");
+        createBtn.setPrefWidth(170);
+        createBtn.setPrefHeight(45);
+        createBtn.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; " +
                           "-fx-background-radius: 6; -fx-font-weight: bold;");
-        addBtn.setOnAction(e -> handleAddEmployee());
+        createBtn.setOnAction(e -> handleCreateEmployee());
 
-        buttonBox.getChildren().addAll(cancelBtn, addBtn);
+        buttonBox.getChildren().addAll(cancelBtn, createBtn);
         return buttonBox;
     }
     
-    private void handleAddEmployee() {
+    private void handleCreateEmployee() {
+        // Validate
         if (!validate()) return;
         
+        // Collect data
         List<Availability.Seasonal> availabilities = collectAvailability();
         List<Integer> selectedSports = collectSports();
         
+        // Call the ONE method from service
         try {
-            // CALLS: employeeService.createEmployee() 
-            // (matches EmployeeManagementService_FINAL)
-            createdEmployee = employeeService.createEmployee(
+            Employee employee = employeeService.createEmployee(
                 firstNameField.getText().trim(),
                 lastNameField.getText().trim(),
                 supervisorCheckBox.isSelected(),
@@ -289,12 +280,9 @@ public class AddEmployeeModal {
                 selectedSports
             );
             
-            showSuccess("Employee " + createdEmployee.getFullName() + " created successfully!");
+            showSuccess("Employee " + employee.getFullName() + " created successfully!");
             
-            if (onSuccess != null) {
-                Platform.runLater(onSuccess);
-            }
-            
+            if (onSuccess != null) onSuccess.run();
             dialogStage.close();
             
         } catch (Exception e) {
@@ -325,12 +313,13 @@ public class AddEmployeeModal {
     
     private List<Availability.Seasonal> collectAvailability() {
         List<Availability.Seasonal> availabilities = new ArrayList<>();
-        LocalTime startTime = LocalTime.of(18, 0);
-        LocalTime endTime = LocalTime.of(0, 0);
+        LocalTime startTime = LocalTime.of(18, 0);  // 6 PM
+        LocalTime endTime = LocalTime.of(0, 0);     // 12 AM
         int currentYear = java.time.LocalDate.now().getYear();
         
         for (Map.Entry<DayOfWeek, CheckBox> entry : availabilityCheckboxes.entrySet()) {
             if (entry.getValue().isSelected()) {
+                // Create for all seasons
                 for (Availability.Season season : Availability.Season.values()) {
                     availabilities.add(new Availability.Seasonal(
                         0, season, currentYear, entry.getKey(), startTime, endTime

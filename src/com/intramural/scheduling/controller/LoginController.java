@@ -45,7 +45,7 @@ public class LoginController {
     }
     
     /**
-     * Validate credentials format before attempting login
+     * Validate credentials format - SIMPLIFIED (no constraints)
      */
     public String validateCredentials(String username, String password) {
         if (username == null || username.trim().isEmpty()) {
@@ -54,24 +54,7 @@ public class LoginController {
         if (password == null || password.trim().isEmpty()) {
             return "Password is required";
         }
-        if (username.length() < 3) {
-            return "Username must be at least 3 characters";
-        }
-        if (password.length() < 6) {
-            return "Password must be at least 6 characters";
-        }
+        // NO minimum length requirements - accept any password!
         return null; // Valid
-    }
-    
-    /**
-     * Change password for current user
-     */
-    public boolean changePassword(String oldPassword, String newPassword) {
-        try {
-            return authService.changePassword(oldPassword, newPassword);
-        } catch (SQLException e) {
-            System.err.println("Password change error: " + e.getMessage());
-            return false;
-        }
     }
 }

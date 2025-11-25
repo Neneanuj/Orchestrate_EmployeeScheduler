@@ -1,5 +1,7 @@
 package com.intramural.scheduling.view;
 
+import com.intramural.scheduling.controller.LoginController;
+import com.intramural.scheduling.model.User;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -14,9 +16,11 @@ public class LoginView {
     private TextField usernameField;
     private PasswordField passwordField;
     private Label messageLabel;
+    private LoginController loginController;
 
     public LoginView(Stage primaryStage) {
         this.primaryStage = primaryStage;
+        this.loginController = new LoginController();
     }
 
     public Scene createScene() {
@@ -145,17 +149,32 @@ public class LoginView {
         // Clear previous message
         messageLabel.setText("");
 
-        // Basic validation
-        if (username.isEmpty() || password.isEmpty()) {
-            showError("Please enter both username and password");
+        // Validate input
+        String validationError = loginController.validateCredentials(username, password);
+        if (validationError != null) {
+            showError(validationError);
             return;
         }
 
-        // TODO: Implement actual authentication with database
-        // For now, just simulate login
-        if (username.equals("admin") && password.equals("admin")) {
+        // Attempt login
+        User user = loginController.login(username, password);
+        
+        if (user != null) {
             showSuccess("Login successful!");
-            openDashboard(username);
+            
+            // Small delay to show success message
+            new Thread(() -> {
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException ex) {
+                    ex.printStackTrace();
+                }
+                
+                // Switch to dashboard on JavaFX thread
+                javafx.application.Platform.runLater(() -> {
+                    openDashboard(user);
+                });
+            }).start();
         } else {
             showError("Invalid username or password");
         }
@@ -171,9 +190,8 @@ public class LoginView {
         messageLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-size: 12px;");
     }
 
-    // Method to open dashboard
-    private void openDashboard(String username) {
-        AdminDashboard dashboard = new AdminDashboard(primaryStage, username);
+    private void openDashboard(User user) {
+        AdminDashboard dashboard = new AdminDashboard(primaryStage, user.getUsername(), user.getUserId());
         Scene dashboardScene = dashboard.createScene();
         primaryStage.setScene(dashboardScene);
         primaryStage.setTitle("Employee Scheduling System - Dashboard");

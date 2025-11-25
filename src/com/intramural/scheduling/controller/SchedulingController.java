@@ -10,9 +10,9 @@ import java.util.*;
 public class SchedulingController {
     private SchedulingEngine schedulingEngine;
     private GameScheduleDAO gameScheduleDAO;
+    private ShiftDAO shiftDAO;
     private EmployeeDAO employeeDAO;
-    private AvailabilityDAO availabilityDAO;
-    private TimeOffDAO timeOffDAO;
+    private SportDAO sportDAO;
     private WeeklyHoursDAO weeklyHoursDAO;
     private HoursTracker hoursTracker;
     
@@ -22,31 +22,149 @@ public class SchedulingController {
     public SchedulingController() {
         this.schedulingEngine = new SchedulingEngine();
         this.gameScheduleDAO = new GameScheduleDAO();
+        this.shiftDAO = new ShiftDAO();
         this.employeeDAO = new EmployeeDAO();
-        this.availabilityDAO = new AvailabilityDAO();
-        this.timeOffDAO = new TimeOffDAO();
+        this.sportDAO = new SportDAO();
         this.weeklyHoursDAO = new WeeklyHoursDAO();
         this.hoursTracker = new HoursTracker();
         this.recommendations = new HashMap<>();
     }
     
-    /**
-     * Create new scheduling cycle
-     */
     public void createCycle(LocalDate startDate, LocalDate endDate) {
         this.currentCycle = new Schedule.Cycle(startDate, endDate);
     }
     
-    /**
-     * Get current cycle
-     */
     public Schedule.Cycle getCurrentCycle() {
         return currentCycle;
     }
     
     /**
-     * Load game schedules for current cycle
+     * Auto-generate recommendations for a single game - SIMPLIFIED FOR MVP
      */
+    public void autoGenerateRecommendations(Schedule.Game game) throws SQLException {
+        System.out.println("=== Auto-Generating Recommendations ===");
+        System.out.println("Game: " + game.getGameDate() + " at " + game.getLocation());
+        
+        // Ensure game has shifts generated
+        game.generateShifts();
+        
+        // Load shifts from database
+        List<Schedule.Shift> dbShifts = shiftDAO.getByGameSchedule(game.getScheduleId());
+        if (!dbShifts.isEmpty()) {
+            game.getShifts().clear();
+            game.getShifts().addAll(dbShifts);
+        }
+        
+        System.out.println("Total shifts: " + game.getShifts().size());
+        
+        // Get all active employees
+        List<Employee> allEmployees = employeeDAO.getAllActive();
+        System.out.println("Active employees: " + allEmployees.size());
+        
+        if (allEmployees.isEmpty()) {
+            System.out.println("No employees available for recommendations");
+            throw new SQLException("No active employees found. Please add employees first.");
+        }
+        
+        // Get sport info
+        Sport sport = sportDAO.getById(game.getSportId());
+        
+        // Simple data maps - NO availability/conflicts for MVP
+        Map<Integer, List<Availability.Seasonal>> availabilityMap = new HashMap<>();
+        Map<Integer, List<Availability.PermanentConflict>> conflictsMap = new HashMap<>();
+        Map<Integer, List<TimeOffRequest>> timeOffMap = new HashMap<>();
+        Map<Integer, List<Schedule.Game>> existingGamesMap = new HashMap<>();
+        Map<Integer, Tracking.WeeklyHours> weeklyHoursMap = new HashMap<>();
+        
+        // Initialize empty maps for each employee
+        for (Employee emp : allEmployees) {
+            availabilityMap.put(emp.getEmployeeId(), new ArrayList<>());
+            conflictsMap.put(emp.getEmployeeId(), new ArrayList<>());
+            timeOffMap.put(emp.getEmployeeId(), new ArrayList<>());
+            existingGamesMap.put(emp.getEmployeeId(), new ArrayList<>());
+            
+            // Get weekly hours
+            try {
+                LocalDate weekStart = hoursTracker.getWeekStartDate(game.getGameDate());
+                Tracking.WeeklyHours hours = weeklyHoursDAO.getByEmployeeAndWeek(
+                    emp.getEmployeeId(), weekStart);
+                weeklyHoursMap.put(emp.getEmployeeId(), hours);
+            } catch (Exception e) {
+                Tracking.WeeklyHours hours = new Tracking.WeeklyHours(
+                    emp.getEmployeeId(), game.getGameDate());
+                weeklyHoursMap.put(emp.getEmployeeId(), hours);
+            }
+        }
+        
+        // Generate recommendations for each shift
+        int recommendationsGenerated = 0;
+        for (Schedule.Shift shift : game.getShifts()) {
+            System.out.println("\n--- Generating for Shift " + shift.getShiftId() + 
+                             " (" + shift.getPositionType() + " #" + shift.getPositionNumber() + ") ---");
+            
+            List<SchedulingRecommendation> recs = schedulingEngine.generateRecommendations(
+                shift, game, sport, allEmployees,
+                availabilityMap, conflictsMap, timeOffMap,
+                existingGamesMap, weeklyHoursMap
+            );
+            
+            System.out.println("Generated " + recs.size() + " recommendations");
+            
+            if (recs.size() >= 1) {
+                Integer optionA = recs.get(0).getEmployee().getEmployeeId();
+                Integer optionB = recs.size() >= 2 ? 
+                    recs.get(1).getEmployee().getEmployeeId() : optionA;
+                
+                shift.setRecommendations(optionA, optionB);
+                
+                System.out.println("Option A: " + recs.get(0).getEmployee().getFirstName() + 
+                                 " " + recs.get(0).getEmployee().getLastName() + 
+                                 " (Score: " + String.format("%.2f", recs.get(0).getScore()) + ")");
+                
+                if (recs.size() >= 2 && !recs.get(1).getEmployee().getEmployeeId().equals(optionA)) {
+                    System.out.println("Option B: " + recs.get(1).getEmployee().getFirstName() + 
+                                     " " + recs.get(1).getEmployee().getLastName() + 
+                                     " (Score: " + String.format("%.2f", recs.get(1).getScore()) + ")");
+                }
+                
+                // Save to database
+                shiftDAO.updateRecommendations(
+                    shift.getShiftId(), optionA, optionB
+                );
+                
+                // Store recommendations
+                recommendations.put(shift.getShiftId(), recs);
+                recommendationsGenerated++;
+            } else {
+                System.out.println("No valid recommendations found for this shift");
+            }
+        }
+        
+        System.out.println("\n=== Summary ===");
+        System.out.println("Recommendations generated for " + recommendationsGenerated + 
+                         " out of " + game.getShifts().size() + " shifts");
+    }
+    
+    /**
+     * Generate recommendations for all shifts in current cycle
+     */
+    public void generateRecommendations() throws SQLException {
+        if (currentCycle == null) {
+            throw new IllegalStateException("No active cycle");
+        }
+        
+        System.out.println("Generating recommendations for all shifts in cycle...");
+        
+        // Reload games from database
+        loadGameSchedules();
+        
+        for (Schedule.Game game : currentCycle.getGameSchedules()) {
+            autoGenerateRecommendations(game);
+        }
+        
+        System.out.println("All recommendations generated!");
+    }
+    
     public List<Schedule.Game> loadGameSchedules() throws SQLException {
         if (currentCycle == null) {
             return new ArrayList<>();
@@ -59,6 +177,11 @@ public class SchedulingController {
         
         for (Schedule.Game game : games) {
             game.generateShifts();
+            
+            // Load shifts from database
+            List<Schedule.Shift> shifts = shiftDAO.getByGameSchedule(game.getScheduleId());
+            game.getShifts().clear();
+            game.getShifts().addAll(shifts);
         }
         
         currentCycle.getGameSchedules().clear();
@@ -67,98 +190,6 @@ public class SchedulingController {
         return games;
     }
     
-    /**
-     * Generate recommendations for all shifts
-     */
-    public void generateRecommendations() throws SQLException {
-        if (currentCycle == null) {
-            throw new IllegalStateException("No active cycle");
-        }
-        
-        List<Employee> allEmployees = employeeDAO.getAllActive();
-        
-        Map<Integer, List<Availability.Seasonal>> availabilityMap = new HashMap<>();
-        Map<Integer, List<Availability.PermanentConflict>> conflictsMap = new HashMap<>();
-        Map<Integer, List<TimeOffRequest>> timeOffMap = new HashMap<>();
-        Map<Integer, Tracking.WeeklyHours> weeklyHoursMap = new HashMap<>();
-        
-        Availability.Season currentSeason = getCurrentSeason();
-        int currentYear = currentCycle.getCycleStart().getYear();
-        
-        for (Employee emp : allEmployees) {
-            int empId = emp.getEmployeeId();
-            
-            availabilityMap.put(empId, 
-                availabilityDAO.getByEmployee(empId, currentSeason, currentYear));
-            
-            conflictsMap.put(empId,
-                availabilityDAO.getConflictsByEmployee(empId));
-            
-            timeOffMap.put(empId, 
-                timeOffDAO.getApprovedByEmployee(empId, 
-                    currentCycle.getCycleStart(), 
-                    currentCycle.getCycleEnd()));
-            
-            LocalDate weekStart = HoursTracker.getWeekStartDate(
-                currentCycle.getCycleStart());
-            weeklyHoursMap.put(empId, 
-                weeklyHoursDAO.getByEmployeeAndWeek(empId, weekStart));
-        }
-        
-        Map<Integer, Sport> sportsMap = new HashMap<>();
-        // Load sports data
-        
-        this.recommendations = schedulingEngine.generateAllRecommendations(
-            currentCycle,
-            allEmployees,
-            sportsMap,
-            availabilityMap,
-            conflictsMap,
-            timeOffMap,
-            weeklyHoursMap
-        );
-    }
-    
-    /**
-     * Assign employee to shift
-     */
-    public void assignShift(Schedule.Shift shift, int employeeId, 
-                           Schedule.Game game) throws SQLException {
-        shift.assignEmployee(employeeId);
-        hoursTracker.assignShift(employeeId, game);
-    }
-    
-    /**
-     * Unassign shift
-     */
-    public void unassignShift(Schedule.Shift shift, Schedule.Game game) 
-            throws SQLException {
-        if (shift.getAssignedEmployeeId() != null) {
-            int employeeId = shift.getAssignedEmployeeId();
-            shift.unassign();
-            hoursTracker.unassignShift(employeeId, game);
-        }
-    }
-    
-    /**
-     * Get recommendations for shift
-     */
-    public List<SchedulingRecommendation> getRecommendations(int shiftId) {
-        return recommendations.getOrDefault(shiftId, new ArrayList<>());
-    }
-    
-    /**
-     * Publish schedule
-     */
-    public void publishSchedule() {
-        if (currentCycle != null) {
-            currentCycle.setPublished(true);
-        }
-    }
-    
-    /**
-     * Get cycle statistics
-     */
     public Map<String, Integer> getStatistics() {
         Map<String, Integer> stats = new HashMap<>();
         
@@ -193,10 +224,7 @@ public class SchedulingController {
         return stats;
     }
     
-    private Availability.Season getCurrentSeason() {
-        int month = LocalDate.now().getMonthValue();
-        if (month >= 9 && month <= 12) return Availability.Season.FALL;
-        if (month >= 1 && month <= 5) return Availability.Season.SPRING;
-        return Availability.Season.SUMMER;
+    public List<SchedulingRecommendation> getRecommendations(int shiftId) {
+        return recommendations.getOrDefault(shiftId, new ArrayList<>());
     }
 }

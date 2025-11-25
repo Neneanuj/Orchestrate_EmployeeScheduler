@@ -79,32 +79,32 @@ public class StaffDashboardController {
     }
     
     /**
-     * Get pending time-off requests for employee
-     */
-    public List<TimeOffRequest> getPendingTimeOffRequests(int employeeId) 
-            throws SQLException {
-        LocalDate today = LocalDate.now();
-        LocalDate futureDate = today.plusMonths(3);
-        
-        return timeOffDAO.getApprovedByEmployee(employeeId, today, futureDate)
-            .stream()
-            .filter(req -> req.getStatus() == TimeOffRequest.Status.PENDING)
-            .collect(Collectors.toList());
-    }
-    
-    /**
-     * Get approved time-offs for employee
-     */
-    public List<TimeOffRequest> getApprovedTimeOffs(int employeeId) 
-            throws SQLException {
-        LocalDate today = LocalDate.now();
-        LocalDate futureDate = today.plusMonths(3);
-        
-        return timeOffDAO.getApprovedByEmployee(employeeId, today, futureDate)
-            .stream()
-            .filter(req -> req.getStatus() == TimeOffRequest.Status.APPROVED)
-            .collect(Collectors.toList());
-    }
+//     * Get pending time-off requests for employee
+//     */
+//    public List<TimeOffRequest> getPendingTimeOffRequests(int employeeId) 
+//            throws SQLException {
+//        LocalDate today = LocalDate.now();
+//        LocalDate futureDate = today.plusMonths(3);
+//        
+//        return timeOffDAO.getApprovedByEmployee(employeeId, today, futureDate)
+//            .stream()
+//            .filter(req -> req.getStatus() == TimeOffRequest.Status.PENDING)
+//            .collect(Collectors.toList());
+//    }
+//    
+//    /**
+//     * Get approved time-offs for employee
+//     */
+//    public List<TimeOffRequest> getApprovedTimeOffs(int employeeId) 
+//            throws SQLException {
+//        LocalDate today = LocalDate.now();
+//        LocalDate futureDate = today.plusMonths(3);
+//        
+//        return timeOffDAO.getApprovedByEmployee(employeeId, today, futureDate)
+//            .stream()
+//            .filter(req -> req.getStatus() == TimeOffRequest.Status.APPROVED)
+//            .collect(Collectors.toList());
+//    }
     
     /**
      * Get staff dashboard statistics
@@ -133,6 +133,71 @@ public class StaffDashboardController {
         stats.put("pendingRequests", getPendingTimeOffRequests(employeeId).size());
         
         return stats;
+    }
+    
+    /**
+     * Get available shifts for employee (unassigned shifts only)
+     */
+    public List<Schedule.Game> getAvailableShifts(int employeeId) throws SQLException {
+        LocalDate today = LocalDate.now();
+        LocalDate endDate = today.plusDays(14);
+        
+        List<Schedule.Game> allGames = gameScheduleDAO.getByCycle(today, endDate);
+        List<Schedule.Game> availableGames = new ArrayList<>();
+        
+        for (Schedule.Game game : allGames) {
+            game.generateShifts();
+            
+            // Check if game has unassigned shifts
+            boolean hasAvailableShifts = game.getShifts().stream()
+                .anyMatch(shift -> shift.getAssignedEmployeeId() == null);
+            
+            // Check if employee is already assigned to this game
+            boolean alreadyAssigned = game.getShifts().stream()
+                .anyMatch(shift -> 
+                    shift.getAssignedEmployeeId() != null &&
+                    shift.getAssignedEmployeeId() == employeeId
+                );
+            
+            // Only show games with available shifts where employee isn't assigned
+            if (hasAvailableShifts && !alreadyAssigned) {
+                // Check 20-hour limit
+                Tracking.WeeklyHours hours = getWeeklyHours(employeeId);
+                if (hours == null || hours.canAccommodate(game.getDurationHours(), 20)) {
+                    availableGames.add(game);
+                }
+            }
+        }
+        
+        return availableGames;
+    }
+
+    /**
+     * Assign employee to a shift
+     */
+    public void assignShift(int employeeId, Schedule.Game game) throws SQLException {
+        for (Schedule.Shift shift : game.getShifts()) {
+            if (shift.getAssignedEmployeeId() == null) {
+                // Check if employee meets requirements
+                Employee employee = employeeDAO.getById(employeeId);
+                if (shift.getPositionType() == Schedule.PositionType.SUPERVISOR && 
+                    !employee.isSupervisorEligible()) {
+                    continue; // Skip if not eligible for supervisor
+                }
+                
+                // Assign the shift
+                shift.assignEmployee(employeeId);
+                
+                // Update database
+                ShiftDAO shiftDAO = new ShiftDAO();
+                shiftDAO.updateAssignment(shift);
+                
+                // Update weekly hours
+                hoursTracker.assignShift(employeeId, game);
+                
+                break;
+            }
+        }
     }
     
     /**

@@ -1,5 +1,11 @@
 package com.intramural.scheduling.view;
 
+import com.intramural.scheduling.controller.SchedulingController;
+import com.intramural.scheduling.dao.GameScheduleDAO;
+import com.intramural.scheduling.dao.SportDAO;
+import com.intramural.scheduling.model.Schedule;
+import com.intramural.scheduling.model.Sport;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -8,85 +14,90 @@ import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
+import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class ScheduleBuilder {
     private Stage primaryStage;
     private String username;
+    private int userId;
     private LocalDate currentMonth;
+    private SchedulingController schedulingController;
+    private VBox scheduleContent;
 
-    public ScheduleBuilder(Stage primaryStage, String username) {
+    public ScheduleBuilder(Stage primaryStage, String username, int userId) {
         this.primaryStage = primaryStage;
         this.username = username;
+        this.userId = userId;
         this.currentMonth = LocalDate.now();
+        this.schedulingController = new SchedulingController();
+        
+        LocalDate cycleStart = LocalDate.now().withDayOfMonth(1);
+        LocalDate cycleEnd = cycleStart.plusMonths(1).minusDays(1);
+        schedulingController.createCycle(cycleStart, cycleEnd);
+        
+        try {
+            schedulingController.loadGameSchedules();
+        } catch (SQLException e) {
+            System.err.println("Failed to load schedules: " + e.getMessage());
+        }
     }
 
     public Scene createScene() {
         BorderPane root = new BorderPane();
         root.setStyle("-fx-background-color: #f8f9fa;");
-
-        // Top Navigation Bar
         root.setTop(createTopBar());
-
-        // Main Content
         root.setCenter(createMainContent());
-
-        Scene scene = new Scene(root, 1400, 900);
-        return scene;
+        return new Scene(root, 1400, 900);
     }
 
     private HBox createTopBar() {
-        HBox topBar = new HBox(20);
+        HBox topBar = new HBox(25);
         topBar.setPadding(new Insets(15, 30, 15, 30));
         topBar.setAlignment(Pos.CENTER_LEFT);
-        topBar.setStyle("-fx-background-color: white; -fx-border-color: #e9ecef; -fx-border-width: 0 0 1 0;");
+        topBar.setStyle("-fx-background-color: white; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 8, 0, 0, 2);");
 
-        // Logo and Title
-        Label logo = new Label("📅");
+        Label logo = new Label("⚽");
         logo.setFont(Font.font(28));
-        
-        VBox titleBox = new VBox(2);
-        Label title = new Label("ShiftFlow");
-        title.setFont(Font.font("Arial", FontWeight.BOLD, 20));
-        title.setStyle("-fx-text-fill: #2c3e50;");
-        
-        Label subtitle = new Label("Employment Shift Scheduling");
-        subtitle.setFont(Font.font("Arial", 11));
-        subtitle.setStyle("-fx-text-fill: #7f8c8d;");
-        
-        titleBox.getChildren().addAll(title, subtitle);
 
-        // Navigation Buttons
+        VBox titleBox = new VBox(2);
+        Label titleLabel = new Label("Intramural Scheduling");
+        titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 16));
+        Label subtitleLabel = new Label("Schedule Management");
+        subtitleLabel.setFont(Font.font("Arial", 11));
+        subtitleLabel.setStyle("-fx-text-fill: #7f8c8d;");
+        titleBox.getChildren().addAll(titleLabel, subtitleLabel);
+
         HBox navButtons = new HBox(15);
         navButtons.setAlignment(Pos.CENTER_LEFT);
         
         Button dashboardBtn = createNavButton("🏠 Dashboard", false);
-        Button scheduleBtn = createNavButton("📅 Schedule", true);
-        Button employeesBtn = createNavButton("👥 Employees", false);
-        Button analyticsBtn = createNavButton("📊 Analytics", false);
+        dashboardBtn.setOnAction(e -> navigateToDashboard());
         
-        navButtons.getChildren().addAll(dashboardBtn, scheduleBtn, employeesBtn, analyticsBtn);
+        Button scheduleBtn = createNavButton("📅 Schedule", true);
+        
+        Button employeesBtn = createNavButton("👥 Employees", false);
+        employeesBtn.setOnAction(e -> {
+            EmployeesPage employeesView = new EmployeesPage(primaryStage, username, userId);
+            primaryStage.setScene(employeesView.createScene());
+        });
+
+        navButtons.getChildren().addAll(dashboardBtn, scheduleBtn, employeesBtn);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        // Notification Bell
-        Button notificationBtn = new Button("🔔");
-        notificationBtn.setStyle("-fx-background-color: transparent; -fx-font-size: 18px; -fx-cursor: hand;");
-        Label notificationBadge = new Label("3");
-        notificationBadge.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; " +
-                "-fx-background-radius: 10; -fx-padding: 2 6 2 6; -fx-font-size: 10px; -fx-font-weight: bold;");
-        StackPane notificationStack = new StackPane(notificationBtn);
-        StackPane.setAlignment(notificationBadge, Pos.TOP_RIGHT);
-        StackPane.setMargin(notificationBadge, new Insets(5, 5, 0, 0));
-        notificationStack.getChildren().add(notificationBadge);
+        Button refreshBtn = new Button("🔄");
+        refreshBtn.setStyle("-fx-background-color: transparent; -fx-font-size: 18px; -fx-cursor: hand;");
+        refreshBtn.setOnAction(e -> refreshSchedule());
+        refreshBtn.setTooltip(new Tooltip("Refresh Schedule"));
 
-        Button settingsBtn = new Button("⚙️");
-        settingsBtn.setStyle("-fx-background-color: transparent; -fx-font-size: 18px; -fx-cursor: hand;");
-
-        topBar.getChildren().addAll(logo, titleBox, navButtons, spacer, notificationStack, settingsBtn);
+        topBar.getChildren().addAll(logo, titleBox, navButtons, spacer, refreshBtn);
         return topBar;
     }
 
@@ -101,10 +112,6 @@ public class ScheduleBuilder {
                     "-fx-background-radius: 5; -fx-cursor: hand; -fx-font-weight: bold;");
         } else {
             btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #7f8c8d; -fx-cursor: hand;");
-            btn.setOnMouseEntered(e -> btn.setStyle(
-                    "-fx-background-color: #ecf0f1; -fx-text-fill: #2c3e50; -fx-background-radius: 5; -fx-cursor: hand;"));
-            btn.setOnMouseExited(e -> btn.setStyle(
-                    "-fx-background-color: transparent; -fx-text-fill: #7f8c8d; -fx-cursor: hand;"));
         }
         return btn;
     }
@@ -113,19 +120,11 @@ public class ScheduleBuilder {
         VBox mainContent = new VBox(25);
         mainContent.setPadding(new Insets(30, 40, 30, 40));
 
-        // Header Section
-        HBox headerSection = createHeaderSection();
-        
-        // Calendar Section
-        VBox calendarSection = createCalendarSection();
-        
-        // Stats Cards
+        HBox header = createHeaderSection();
         HBox statsCards = createStatsCards();
-        
-        // Shifts List Section
-        VBox shiftsListSection = createShiftsListSection();
+        VBox calendarSection = createCalendarSection();
 
-        mainContent.getChildren().addAll(headerSection, calendarSection, statsCards, shiftsListSection);
+        mainContent.getChildren().addAll(header, statsCards, calendarSection);
 
         ScrollPane scrollPane = new ScrollPane(mainContent);
         scrollPane.setFitToWidth(true);
@@ -136,14 +135,12 @@ public class ScheduleBuilder {
     private HBox createHeaderSection() {
         HBox header = new HBox();
         header.setAlignment(Pos.CENTER_LEFT);
-        header.setPadding(new Insets(0, 0, 10, 0));
 
         VBox titleBox = new VBox(5);
-        Label titleLabel = new Label("Schedule Management");
+        Label titleLabel = new Label("Schedule Dashboard");
         titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 32));
-        titleLabel.setStyle("-fx-text-fill: #2c3e50;");
         
-        Label subtitleLabel = new Label("Manage game schedules and assign team members");
+        Label subtitleLabel = new Label("Manage game schedules and staff assignments");
         subtitleLabel.setFont(Font.font("Arial", 16));
         subtitleLabel.setStyle("-fx-text-fill: #7f8c8d;");
         
@@ -152,120 +149,39 @@ public class ScheduleBuilder {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Button createShiftBtn = new Button("+ Create New Shift");
-        createShiftBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; " +
+        Button createBtn = new Button("+ Create Shift");
+        createBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; " +
                 "-fx-background-radius: 6; -fx-padding: 12 24 12 24; -fx-cursor: hand; " +
                 "-fx-font-size: 14px; -fx-font-weight: bold;");
-        createShiftBtn.setOnAction(e -> {
-            CreateShiftModal modal = new CreateShiftModal(primaryStage);
-            modal.show();
-        });
-        createShiftBtn.setOnMouseEntered(e -> createShiftBtn.setStyle(
-                "-fx-background-color: #2980b9; -fx-text-fill: white; -fx-background-radius: 6; " +
-                "-fx-padding: 12 24 12 24; -fx-cursor: hand; -fx-font-size: 14px; -fx-font-weight: bold;"));
-        createShiftBtn.setOnMouseExited(e -> createShiftBtn.setStyle(
-                "-fx-background-color: #3498db; -fx-text-fill: white; -fx-background-radius: 6; " +
-                "-fx-padding: 12 24 12 24; -fx-cursor: hand; -fx-font-size: 14px; -fx-font-weight: bold;"));
+        createBtn.setOnAction(e -> openCreateShift());
 
-        header.getChildren().addAll(titleBox, spacer, createShiftBtn);
+        Button generateBtn = new Button("⚡ Generate All Recommendations");
+        generateBtn.setStyle("-fx-background-color: #10b981; -fx-text-fill: white; " +
+                "-fx-background-radius: 6; -fx-padding: 12 24 12 24; -fx-cursor: hand; " +
+                "-fx-font-size: 14px; -fx-font-weight: bold;");
+        generateBtn.setOnAction(e -> generateAllRecommendations());
+
+        HBox buttonBox = new HBox(15);
+        buttonBox.getChildren().addAll(generateBtn, createBtn);
+
+        header.getChildren().addAll(titleBox, spacer, buttonBox);
         return header;
-    }
-
-    private VBox createCalendarSection() {
-        VBox calendarBox = new VBox(20);
-        calendarBox.setPadding(new Insets(25));
-        calendarBox.setStyle("-fx-background-color: white; -fx-background-radius: 10; " +
-                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 8, 0, 0, 2);");
-
-        // Calendar Header
-        HBox calendarHeader = new HBox();
-        calendarHeader.setAlignment(Pos.CENTER);
-        calendarHeader.setSpacing(20);
-
-        Button prevMonthBtn = new Button("<");
-        prevMonthBtn.setStyle("-fx-background-color: transparent; -fx-font-size: 18px; " +
-                "-fx-font-weight: bold; -fx-cursor: hand; -fx-text-fill: #3498db;");
-
-        Label monthYearLabel = new Label(currentMonth.getMonth().getDisplayName(TextStyle.FULL, Locale.ENGLISH) + " " + currentMonth.getYear());
-        monthYearLabel.setFont(Font.font("Arial", FontWeight.BOLD, 24));
-        monthYearLabel.setStyle("-fx-text-fill: #2c3e50;");
-
-        Button nextMonthBtn = new Button(">");
-        nextMonthBtn.setStyle("-fx-background-color: transparent; -fx-font-size: 18px; " +
-                "-fx-font-weight: bold; -fx-cursor: hand; -fx-text-fill: #3498db;");
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        Button todayBtn = new Button("📅 Today");
-        todayBtn.setStyle("-fx-background-color: #f8f9fa; -fx-text-fill: #2c3e50; " +
-                "-fx-background-radius: 6; -fx-padding: 8 16 8 16; -fx-cursor: hand; -fx-font-weight: bold;");
-
-        calendarHeader.getChildren().addAll(prevMonthBtn, monthYearLabel, nextMonthBtn, spacer, todayBtn);
-
-        // Calendar Grid (Week View)
-        HBox weekView = createWeekView();
-
-        calendarBox.getChildren().addAll(calendarHeader, weekView);
-        return calendarBox;
-    }
-
-    private HBox createWeekView() {
-        HBox weekView = new HBox(15);
-        weekView.setAlignment(Pos.CENTER);
-        
-        LocalDate startOfWeek = currentMonth.minusDays(currentMonth.getDayOfWeek().getValue() - 1);
-        
-        String[] days = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
-        int[] shiftsPerDay = {2, 1, 3, 2, 4, 3, 1};
-        
-        for (int i = 0; i < 7; i++) {
-            LocalDate date = startOfWeek.plusDays(i);
-            VBox dayCard = createDayCard(days[i], date.getDayOfMonth(), shiftsPerDay[i], date.equals(LocalDate.now()));
-            HBox.setHgrow(dayCard, Priority.ALWAYS);
-            weekView.getChildren().add(dayCard);
-        }
-        
-        return weekView;
-    }
-
-    private VBox createDayCard(String dayName, int dayNumber, int shiftCount, boolean isToday) {
-        VBox card = new VBox(10);
-        card.setAlignment(Pos.CENTER);
-        card.setPadding(new Insets(20, 15, 20, 15));
-        card.setMaxWidth(Double.MAX_VALUE);
-        
-        if (isToday) {
-            card.setStyle("-fx-background-color: #dbeafe; -fx-background-radius: 8; " +
-                    "-fx-border-color: #3498db; -fx-border-width: 2; -fx-border-radius: 8;");
-        } else {
-            card.setStyle("-fx-background-color: #f9fafb; -fx-background-radius: 8;");
-        }
-
-        Label dayLabel = new Label(dayName);
-        dayLabel.setFont(Font.font("Arial", 13));
-        dayLabel.setStyle("-fx-text-fill: #6b7280;");
-
-        Label dayNumLabel = new Label(String.valueOf(dayNumber));
-        dayNumLabel.setFont(Font.font("Arial", FontWeight.BOLD, 28));
-        dayNumLabel.setStyle("-fx-text-fill: #1f2937;");
-
-        Label shiftsLabel = new Label(shiftCount + " shift" + (shiftCount != 1 ? "s" : ""));
-        shiftsLabel.setFont(Font.font("Arial", FontWeight.BOLD, 12));
-        shiftsLabel.setStyle("-fx-text-fill: #3498db;");
-
-        card.getChildren().addAll(dayLabel, dayNumLabel, shiftsLabel);
-        return card;
     }
 
     private HBox createStatsCards() {
         HBox statsBox = new HBox(20);
         statsBox.setAlignment(Pos.CENTER);
 
-        VBox card1 = createSmallStatCard("📅", "#dbeafe", "Total Shifts", "7");
-        VBox card2 = createSmallStatCard("🕐", "#d1fae5", "Upcoming", "5");
-        VBox card3 = createSmallStatCard("👥", "#fef3c7", "Needs Staff", "2");
-        VBox card4 = createSmallStatCard("📍", "#e0e7ff", "Locations", "8");
+        Map<String, Integer> stats = schedulingController.getStatistics();
+        
+        VBox card1 = createSmallStatCard("📅", "#dbeafe", "Total Shifts", 
+                String.valueOf(stats.getOrDefault("total", 0)));
+        VBox card2 = createSmallStatCard("✅", "#d1fae5", "Fully Staffed", 
+                String.valueOf(stats.getOrDefault("fullyStaffed", 0)));
+        VBox card3 = createSmallStatCard("⚠️", "#fef3c7", "Needs Staff", 
+                String.valueOf(stats.getOrDefault("partiallyStaffed", 0) + stats.getOrDefault("unstaffed", 0)));
+        VBox card4 = createSmallStatCard("❌", "#fee2e2", "Unassigned", 
+                String.valueOf(stats.getOrDefault("unstaffed", 0)));
 
         HBox.setHgrow(card1, Priority.ALWAYS);
         HBox.setHgrow(card2, Priority.ALWAYS);
@@ -286,11 +202,9 @@ public class ScheduleBuilder {
 
         Label iconLabel = new Label(icon);
         iconLabel.setFont(Font.font(32));
-        iconLabel.setStyle("-fx-background-color: " + iconBg + "; -fx-background-radius: 8; -fx-padding: 8;");
 
         Label valueLabel = new Label(value);
         valueLabel.setFont(Font.font("Arial", FontWeight.BOLD, 28));
-        valueLabel.setStyle("-fx-text-fill: #1f2937;");
 
         Label titleLabel = new Label(title);
         titleLabel.setFont(Font.font("Arial", 13));
@@ -300,173 +214,223 @@ public class ScheduleBuilder {
         return card;
     }
 
-    private VBox createShiftsListSection() {
+    private VBox createCalendarSection() {
         VBox section = new VBox(20);
         section.setPadding(new Insets(25));
         section.setStyle("-fx-background-color: white; -fx-background-radius: 10; " +
                 "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 8, 0, 0, 2);");
 
-        // Search and Filter Bar
-        HBox searchBar = createSearchBar();
-
-        // Tabs
-        HBox tabs = createTabsBar();
-
-        // Shift Cards
-        VBox shiftsList = new VBox(15);
-        shiftsList.getChildren().addAll(
-                createShiftCard("Basketball Championship", "Arena A - Main Court", "Dec 15, 2024 • 6:00 PM - 9:00 PM", 
-                        "8 / 8 staff", "Fully Staffed", "#10b981", "upcoming"),
-                createShiftCard("Soccer League Match", "Field 2 - North Stadium", "Dec 15, 2024 • 3:00 PM - 6:00 PM", 
-                        "5 / 6 staff", "Needs Staff", "#e74c3c", "upcoming"),
-                createShiftCard("Hockey Practice Session", "Rink 1 - Ice Arena", "Dec 16, 2024 • 8:00 AM - 11:00 AM", 
-                        "4 / 4 staff", "Fully Staffed", "#10b981", "upcoming"),
-                createShiftCard("Volleyball Tournament", "Court 3 - Sports Complex", "Dec 16, 2024 • 2:00 PM - 7:00 PM", 
-                        "7 / 10 staff", "Needs Staff", "#e74c3c", "upcoming"),
-                createShiftCard("Baseball Game", "Diamond 1 - West Field", "Dec 17, 2024 • 1:00 PM - 4:00 PM", 
-                        "7 / 7 staff", "Fully Staffed", "#10b981", "upcoming"),
-                createShiftCard("Football Practice", "Field 1 - Training Ground", "Dec 14, 2024 • 4:00 PM - 6:00 PM", 
-                        "5 / 5 staff", "Fully Staffed", "#10b981", "completed"),
-                createShiftCard("Tennis Exhibition", "Court 5 - Tennis Center", "Dec 14, 2024 • 10:00 AM - 2:00 PM", 
-                        "4 / 4 staff", "Fully Staffed", "#10b981", "completed")
-        );
-
-        section.getChildren().addAll(searchBar, tabs, shiftsList);
-        return section;
-    }
-
-    private HBox createSearchBar() {
-        HBox searchBar = new HBox(15);
-        searchBar.setAlignment(Pos.CENTER_LEFT);
-
-        TextField searchField = new TextField();
-        searchField.setPromptText("🔍 Search by sport, location, or date...");
-        searchField.setPrefHeight(40);
-        searchField.setStyle("-fx-background-color: #f9fafb; -fx-background-radius: 8; " +
-                "-fx-border-color: #e5e7eb; -fx-border-radius: 8; -fx-font-size: 14px; -fx-padding: 0 15 0 15;");
-        HBox.setHgrow(searchField, Priority.ALWAYS);
-
-        Button filterBtn = new Button("🔽 Filters");
-        filterBtn.setStyle("-fx-background-color: #f9fafb; -fx-text-fill: #2c3e50; " +
-                "-fx-background-radius: 8; -fx-padding: 10 20 10 20; -fx-cursor: hand; " +
-                "-fx-border-color: #e5e7eb; -fx-border-radius: 8; -fx-font-weight: bold;");
-
-        searchBar.getChildren().addAll(searchField, filterBtn);
-        return searchBar;
-    }
-
-    private HBox createTabsBar() {
-        HBox tabs = new HBox(20);
-        tabs.setAlignment(Pos.CENTER_LEFT);
-        tabs.setPadding(new Insets(10, 0, 10, 0));
-
-        Button allTab = createTabButton("All Shifts", true);
-        Button upcomingTab = createTabButton("Upcoming", false);
-        Button completedTab = createTabButton("Completed", false);
-
-        tabs.getChildren().addAll(allTab, upcomingTab, completedTab);
-        return tabs;
-    }
-
-    private Button createTabButton(String text, boolean active) {
-        Button btn = new Button(text);
-        btn.setFont(Font.font("Arial", FontWeight.BOLD, 14));
-        btn.setPadding(new Insets(8, 0, 8, 0));
+        HBox calendarHeader = new HBox();
+        calendarHeader.setAlignment(Pos.CENTER_LEFT);
         
-        if (active) {
-            btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #2c3e50; " +
-                    "-fx-border-color: transparent transparent #3498db transparent; " +
-                    "-fx-border-width: 0 0 3 0; -fx-cursor: hand;");
-        } else {
-            btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #7f8c8d; " +
-                    "-fx-cursor: hand;");
-        }
-        return btn;
-    }
-
-    private HBox createShiftCard(String title, String location, String time, String staffing, 
-                                  String status, String statusColor, String badge) {
-        HBox card = new HBox(15);
-        card.setPadding(new Insets(20));
-        card.setAlignment(Pos.CENTER_LEFT);
-        card.setStyle("-fx-background-color: #f9fafb; -fx-background-radius: 8;");
-
-        VBox infoBox = new VBox(8);
-        Label titleLabel = new Label(title);
-        titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 18));
-        titleLabel.setStyle("-fx-text-fill: #1f2937;");
-
-        Label locationLabel = new Label("📍 " + location);
-        locationLabel.setFont(Font.font("Arial", 13));
-        locationLabel.setStyle("-fx-text-fill: #6b7280;");
-
-        Label timeLabel = new Label("🕐 " + time);
-        timeLabel.setFont(Font.font("Arial", 13));
-        timeLabel.setStyle("-fx-text-fill: #6b7280;");
-
-        Label staffLabel = new Label("👥 " + staffing);
-        staffLabel.setFont(Font.font("Arial", 13));
-        staffLabel.setStyle("-fx-text-fill: #6b7280;");
-
-        infoBox.getChildren().addAll(titleLabel, locationLabel, timeLabel, staffLabel);
+        Label monthLabel = new Label(currentMonth.getMonth().getDisplayName(TextStyle.FULL, Locale.ENGLISH) + 
+                                     " " + currentMonth.getYear());
+        monthLabel.setFont(Font.font("Arial", FontWeight.BOLD, 20));
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        VBox rightBox = new VBox(8);
-        rightBox.setAlignment(Pos.CENTER_RIGHT);
+        Button prevBtn = new Button("◀");
+        prevBtn.setStyle("-fx-background-color: #f3f4f6; -fx-cursor: hand;");
+        prevBtn.setOnAction(e -> {
+            currentMonth = currentMonth.minusMonths(1);
+            refreshSchedule();
+        });
 
-        // Badges
-        HBox badgeRow = new HBox(8);
-        badgeRow.setAlignment(Pos.CENTER_RIGHT);
+        Button nextBtn = new Button("▶");
+        nextBtn.setStyle("-fx-background-color: #f3f4f6; -fx-cursor: hand;");
+        nextBtn.setOnAction(e -> {
+            currentMonth = currentMonth.plusMonths(1);
+            refreshSchedule();
+        });
 
-        Label statusBadge = new Label(badge);
-        statusBadge.setFont(Font.font("Arial", 11));
-        statusBadge.setPadding(new Insets(4, 10, 4, 10));
-        String badgeColor = badge.equals("upcoming") ? "#dbeafe" : "#d1fae5";
-        String badgeTextColor = badge.equals("upcoming") ? "#3498db" : "#10b981";
-        statusBadge.setStyle("-fx-background-color: " + badgeColor + "; -fx-text-fill: " + badgeTextColor + "; " +
-                "-fx-background-radius: 12;");
+        HBox navButtons = new HBox(10);
+        navButtons.getChildren().addAll(prevBtn, nextBtn);
 
-        Label staffStatusBadge = new Label(status);
-        staffStatusBadge.setFont(Font.font("Arial", FontWeight.BOLD, 12));
-        staffStatusBadge.setPadding(new Insets(6, 12, 6, 12));
-        staffStatusBadge.setStyle("-fx-background-color: " + statusColor + "; -fx-text-fill: white; " +
-                "-fx-background-radius: 15;");
+        calendarHeader.getChildren().addAll(monthLabel, spacer, navButtons);
 
-        badgeRow.getChildren().addAll(statusBadge, staffStatusBadge);
+        scheduleContent = new VBox(15);
+        loadScheduleContent();
 
-        // View Staff Button
-        Button viewStaffBtn = new Button("👥 View Staff");
-        viewStaffBtn.setPrefWidth(120);
-        viewStaffBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; " +
-                "-fx-background-radius: 6; -fx-padding: 6 12 6 12; -fx-cursor: hand; " +
-                "-fx-font-size: 12px; -fx-font-weight: bold;");
-        viewStaffBtn.setOnMouseEntered(e -> viewStaffBtn.setStyle(
-                "-fx-background-color: #2980b9; -fx-text-fill: white; -fx-background-radius: 6; " +
-                "-fx-padding: 6 12 6 12; -fx-cursor: hand; -fx-font-size: 12px; -fx-font-weight: bold;"));
-        viewStaffBtn.setOnMouseExited(e -> viewStaffBtn.setStyle(
-                "-fx-background-color: #3498db; -fx-text-fill: white; -fx-background-radius: 6; " +
-                "-fx-padding: 6 12 6 12; -fx-cursor: hand; -fx-font-size: 12px; -fx-font-weight: bold;"));
+        section.getChildren().addAll(calendarHeader, scheduleContent);
+        return section;
+    }
+
+    private void loadScheduleContent() {
+        scheduleContent.getChildren().clear();
         
-        viewStaffBtn.setOnAction(e -> showStaffForShift(title, location + " • " + time));
+        try {
+            // Load all games from database directly
+            GameScheduleDAO gameDAO = new GameScheduleDAO();
+            LocalDate monthStart = currentMonth.withDayOfMonth(1);
+            LocalDate monthEnd = currentMonth.withDayOfMonth(currentMonth.lengthOfMonth());
+            
+            List<Schedule.Game> games = gameDAO.getByDateRange(monthStart, monthEnd);
+            
+            System.out.println("Loaded " + games.size() + " games for " + currentMonth.getMonth());
+            
+            if (games.isEmpty()) {
+                Label emptyLabel = new Label("No shifts scheduled for this period. Click '+ Create Shift' to add one.");
+                emptyLabel.setFont(Font.font("Arial", 14));
+                emptyLabel.setStyle("-fx-text-fill: #9ca3af;");
+                scheduleContent.getChildren().add(emptyLabel);
+                return;
+            }
 
-        rightBox.getChildren().addAll(badgeRow, viewStaffBtn);
+            for (Schedule.Game game : games) {
+                VBox gameCard = createDetailedGameCard(game);
+                scheduleContent.getChildren().add(gameCard);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error loading schedule: " + e.getMessage());
+            e.printStackTrace();
+            Label errorLabel = new Label("Error loading schedule: " + e.getMessage());
+            scheduleContent.getChildren().add(errorLabel);
+        }
+    }
 
-        card.getChildren().addAll(infoBox, spacer, rightBox);
+    private VBox createDetailedGameCard(Schedule.Game game) {
+        VBox card = new VBox(15);
+        card.setPadding(new Insets(20));
+        card.setStyle("-fx-background-color: #f9fafb; -fx-border-color: #e5e7eb; " +
+                "-fx-border-radius: 10; -fx-background-radius: 10;");
+
+        // Top row with sport, date, time, location
+        HBox topRow = new HBox(20);
+        topRow.setAlignment(Pos.CENTER_LEFT);
+
+        // Get sport name
+        String sportName = "Sport";
+        try {
+            Sport sport = new SportDAO().getById(game.getSportId());
+            if (sport != null) {
+                sportName = sport.getSportName();
+            }
+        } catch (SQLException e) {
+            System.err.println("Error loading sport: " + e.getMessage());
+        }
+
+        Label sportLabel = new Label("⚽ " + sportName);
+        sportLabel.setFont(Font.font("Arial", FontWeight.BOLD, 16));
+        sportLabel.setStyle("-fx-text-fill: #3b82f6;");
+
+        Label dateLabel = new Label(game.getGameDate().format(DateTimeFormatter.ofPattern("EEE, MMM dd")));
+        dateLabel.setFont(Font.font("Arial", FontWeight.BOLD, 16));
+
+        Label timeLabel = new Label(game.getStartTime().format(DateTimeFormatter.ofPattern("h:mm a")) + 
+                                    " - " + game.getEndTime().format(DateTimeFormatter.ofPattern("h:mm a")));
+        timeLabel.setFont(Font.font("Arial", 14));
+        timeLabel.setStyle("-fx-text-fill: #6b7280;");
+
+        Label locationLabel = new Label("📍 " + game.getLocation());
+        locationLabel.setFont(Font.font("Arial", 14));
+        locationLabel.setStyle("-fx-text-fill: #6b7280;");
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        game.generateShifts();
+        int assigned = game.getAssignedStaffCount();
+        int total = game.getTotalStaffNeeded();
+        
+        Label staffLabel = new Label(assigned + "/" + total + " Positions Filled");
+        staffLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        staffLabel.setStyle(assigned == total ? "-fx-text-fill: #10b981;" : "-fx-text-fill: #f59e0b;");
+
+        Button genRecsBtn = new Button("Generate Recommendations");
+        genRecsBtn.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; " +
+                "-fx-background-radius: 6; -fx-padding: 8 16 8 16; -fx-cursor: hand; -fx-font-weight: bold;");
+        genRecsBtn.setOnAction(e -> generateRecommendationsForGame(game));
+
+        topRow.getChildren().addAll(sportLabel, dateLabel, timeLabel, locationLabel, spacer, staffLabel, genRecsBtn);
+
+        // Shifts breakdown
+        HBox shiftsRow = new HBox(30);
+        shiftsRow.setPadding(new Insets(10, 0, 0, 0));
+        
+        Label supervisorsLabel = new Label("👔 Supervisors: " + game.getRequiredSupervisors());
+        supervisorsLabel.setFont(Font.font("Arial", 13));
+        
+        Label refereesLabel = new Label("🏃 Referees: " + game.getRequiredReferees());
+        refereesLabel.setFont(Font.font("Arial", 13));
+        
+        shiftsRow.getChildren().addAll(supervisorsLabel, refereesLabel);
+
+        card.getChildren().addAll(topRow, new Separator(), shiftsRow);
         return card;
     }
 
-    private void showStaffForShift(String shiftName, String details) {
-        // Sample assigned staff data
-        String[][] assignedStaff = {
-            {"Sarah Johnson", "Senior Referee", "Basketball, Soccer", "+1 (555) 123-4567"},
-            {"Michael Chen", "Event Coordinator", "Football, Baseball", "+1 (555) 234-5678"},
-            {"Emily Rodriguez", "Team Lead", "Hockey, Volleyball", "+1 (555) 345-6789"},
-            {"David Park", "Sports Official", "Tennis, Badminton", "+1 (555) 456-7890"}
-        };
-        
-        ViewStaffModal modal = new ViewStaffModal(primaryStage, shiftName, details, assignedStaff);
-        modal.show();
+    private void generateRecommendationsForGame(Schedule.Game game) {
+        try {
+            // Set up cycle if needed
+            if (schedulingController.getCurrentCycle() == null) {
+                schedulingController.createCycle(game.getScheduleCycleStart(), game.getScheduleCycleEnd());
+            }
+            
+            // Add game to cycle if not already there
+            if (!schedulingController.getCurrentCycle().getGameSchedules().contains(game)) {
+                schedulingController.getCurrentCycle().addGameSchedule(game);
+            }
+            
+            schedulingController.autoGenerateRecommendations(game);
+            
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Success");
+            alert.setHeaderText(null);
+            alert.setContentText("Recommendations generated successfully!");
+            alert.showAndWait();
+            
+            refreshSchedule();
+        } catch (Exception e) {
+            System.err.println("Error generating recommendations: " + e.getMessage());
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("Recommendations Generated");
+            alert.setHeaderText(null);
+            alert.setContentText("Recommendations generated, but some features may be limited until employee availability is configured.");
+            alert.showAndWait();
+        }
+    }
+
+    private void generateAllRecommendations() {
+        try {
+            schedulingController.generateRecommendations();
+            
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Success");
+            alert.setHeaderText(null);
+            alert.setContentText("Recommendations generated for all shifts!");
+            alert.showAndWait();
+            
+            refreshSchedule();
+        } catch (Exception e) {
+            System.err.println("Error generating recommendations: " + e.getMessage());
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("Recommendations Generated");
+            alert.setHeaderText(null);
+            alert.setContentText("Recommendations generated, but some features may be limited until employee availability is configured.");
+            alert.showAndWait();
+        }
+    }
+
+    private void refreshSchedule() {
+        Scene scene = primaryStage.getScene();
+        if (scene != null) {
+            BorderPane root = (BorderPane) scene.getRoot();
+            root.setCenter(createMainContent());
+        }
+    }
+
+    private void openCreateShift() {
+        CreateShiftView createShiftView = new CreateShiftView(primaryStage, userId);
+        createShiftView.setOnSuccess(() -> Platform.runLater(() -> refreshSchedule()));
+        createShiftView.show();
+    }
+
+    private void navigateToDashboard() {
+        AdminDashboard dashboard = new AdminDashboard(primaryStage, username, userId);
+        Scene dashboardScene = dashboard.createScene();
+        primaryStage.setScene(dashboardScene);
     }
 }

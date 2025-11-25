@@ -56,7 +56,7 @@ public class AuthenticationService {
      * Check if current user has admin privileges
      */
     public boolean isAdmin() {
-        return currentUser != null && currentUser.getRole() == User.Role.ADMIN;
+        return currentUser != null && currentUser.getRole() == User.UserRole.ADMIN;
     }
     
     /**
@@ -64,8 +64,8 @@ public class AuthenticationService {
      */
     public boolean isSupervisor() {
         return currentUser != null && 
-               (currentUser.getRole() == User.Role.ADMIN || 
-                currentUser.getRole() == User.Role.SUPERVISOR);
+               (currentUser.getRole() == User.UserRole.ADMIN || 
+                currentUser.getRole() == User.UserRole.SUPERVISOR);
     }
     
     /**
@@ -113,7 +113,7 @@ public class AuthenticationService {
      * Register new user (admin only)
      */
     public User registerUser(String username, String password, String email, 
-                            User.Role role) throws SQLException {
+                            User.UserRole role) throws SQLException {
         // Check if username already exists
         if (userDAO.findByUsername(username) != null) {
             throw new IllegalArgumentException("Username already exists");

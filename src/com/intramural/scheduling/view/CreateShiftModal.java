@@ -1,5 +1,8 @@
 package com.intramural.scheduling.view;
 
+import com.intramural.scheduling.controller.SchedulingController;
+import com.intramural.scheduling.model.Schedule;
+import com.intramural.scheduling.model.Sport;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -10,25 +13,30 @@ import javafx.scene.text.FontWeight;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 public class CreateShiftModal {
     private Stage dialogStage;
-    private TextField eventNameField;
+    private SchedulingController schedulingController;
+    
+    private ComboBox<String> sportComboBox;
     private TextField locationField;
     private DatePicker datePicker;
-    private TextField requiredStaffField;
     private TextField startTimeField;
     private TextField endTimeField;
-    private VBox employeeListBox;
+    private Spinner<Integer> supervisorSpinner;
+    private Spinner<Integer> refereeSpinner;
     
-    private Label eventNameError;
+    private Label sportError;
     private Label locationError;
     private Label dateError;
-    private Label staffError;
     private Label startTimeError;
     private Label endTimeError;
+    
+    private boolean shiftCreated = false;
 
-    public CreateShiftModal(Stage parentStage) {
+    public CreateShiftModal(Stage parentStage, SchedulingController controller) {
+        this.schedulingController = controller;
         dialogStage = new Stage();
         dialogStage.initModality(Modality.APPLICATION_MODAL);
         dialogStage.initOwner(parentStage);
@@ -40,8 +48,7 @@ public class CreateShiftModal {
         VBox root = new VBox(20);
         root.setPadding(new Insets(30));
         root.setStyle("-fx-background-color: white;");
-        root.setPrefWidth(700);
-        root.setMaxHeight(700);
+        root.setPrefWidth(600);
 
         // Header
         VBox header = new VBox(5);
@@ -55,70 +62,72 @@ public class CreateShiftModal {
 
         header.getChildren().addAll(titleLabel, subtitleLabel);
 
-        // Form in ScrollPane
-        ScrollPane scrollPane = new ScrollPane();
-        scrollPane.setFitToWidth(true);
-        scrollPane.setStyle("-fx-background-color: white;");
-        
+        // Form
         VBox formBox = new VBox(15);
-        formBox.setPadding(new Insets(10, 0, 10, 0));
 
-        // Event Name / Sport
-        VBox eventBox = createFieldWithError("Event Name / Sport", eventNameField = new TextField(), 
-                eventNameError = new Label());
-        eventNameField.setPromptText("Basketball Championship");
+        // Sport Selection
+        VBox sportBox = createComboBoxWithError("Sport", sportComboBox = new ComboBox<>(), 
+                sportError = new Label());
+        sportComboBox.getItems().addAll("Basketball", "Soccer", "Cricket", "Volleyball", "Pickleball");
+        sportComboBox.setPromptText("Select sport");
+        sportComboBox.setPrefWidth(Double.MAX_VALUE);
+        sportComboBox.setStyle("-fx-font-size: 14px;");
 
         // Location
         VBox locationBox = createFieldWithError("Location", locationField = new TextField(), 
                 locationError = new Label());
         locationField.setPromptText("Arena A - Main Court");
 
-        // Date and Required Staff Row
-        HBox dateStaffRow = new HBox(15);
+        // Date
         VBox dateBox = createDateFieldWithError("Date", datePicker = new DatePicker(), 
                 dateError = new Label());
-        datePicker.setPromptText("mm/dd/yyyy");
         datePicker.setValue(LocalDate.now());
-        
-        VBox staffBox = createFieldWithError("Required Staff", requiredStaffField = new TextField(), 
-                staffError = new Label());
-        requiredStaffField.setPromptText("8");
-        
-        HBox.setHgrow(dateBox, Priority.ALWAYS);
-        HBox.setHgrow(staffBox, Priority.ALWAYS);
-        dateStaffRow.getChildren().addAll(dateBox, staffBox);
+        datePicker.setPrefWidth(Double.MAX_VALUE);
 
-        // Start Time and End Time Row
+        // Time Row
         HBox timeRow = new HBox(15);
-        VBox startBox = createFieldWithError("Start Time", startTimeField = new TextField(), 
+        VBox startBox = createFieldWithError("Start Time (HH:MM)", startTimeField = new TextField(), 
                 startTimeError = new Label());
-        startTimeField.setPromptText("--:-- --");
+        startTimeField.setPromptText("14:00");
         
-        VBox endBox = createFieldWithError("End Time", endTimeField = new TextField(), 
+        VBox endBox = createFieldWithError("End Time (HH:MM)", endTimeField = new TextField(), 
                 endTimeError = new Label());
-        endTimeField.setPromptText("--:-- --");
+        endTimeField.setPromptText("16:00");
         
         HBox.setHgrow(startBox, Priority.ALWAYS);
         HBox.setHgrow(endBox, Priority.ALWAYS);
         timeRow.getChildren().addAll(startBox, endBox);
 
-        // Assign Employees Section
-        VBox assignSection = new VBox(10);
-        Label assignLabel = new Label("Assign Employees (0 selected)");
-        assignLabel.setFont(Font.font("Arial", FontWeight.SEMI_BOLD, 14));
-        assignLabel.setStyle("-fx-text-fill: #2c3e50;");
+        // Staff Requirements Row
+        HBox staffRow = new HBox(15);
+        
+        VBox supervisorBox = new VBox(5);
+        Label supervisorLabel = new Label("Supervisors Required");
+        supervisorLabel.setFont(Font.font("Arial", FontWeight.SEMI_BOLD, 14));
+        supervisorLabel.setStyle("-fx-text-fill: #2c3e50;");
+        supervisorSpinner = new Spinner<>(0, 5, 1);
+        supervisorSpinner.setPrefWidth(Double.MAX_VALUE);
+        supervisorSpinner.setPrefHeight(45);
+        supervisorBox.getChildren().addAll(supervisorLabel, supervisorSpinner);
+        
+        VBox refereeBox = new VBox(5);
+        Label refereeLabel = new Label("Referees Required");
+        refereeLabel.setFont(Font.font("Arial", FontWeight.SEMI_BOLD, 14));
+        refereeLabel.setStyle("-fx-text-fill: #2c3e50;");
+        refereeSpinner = new Spinner<>(1, 10, 2);
+        refereeSpinner.setPrefWidth(Double.MAX_VALUE);
+        refereeSpinner.setPrefHeight(45);
+        refereeBox.getChildren().addAll(refereeLabel, refereeSpinner);
+        
+        HBox.setHgrow(supervisorBox, Priority.ALWAYS);
+        HBox.setHgrow(refereeBox, Priority.ALWAYS);
+        staffRow.getChildren().addAll(supervisorBox, refereeBox);
 
-        employeeListBox = createEmployeeCheckboxList();
-
-        assignSection.getChildren().addAll(assignLabel, employeeListBox);
-
-        formBox.getChildren().addAll(eventBox, locationBox, dateStaffRow, timeRow, assignSection);
-        scrollPane.setContent(formBox);
+        formBox.getChildren().addAll(sportBox, locationBox, dateBox, timeRow, staffRow);
 
         // Buttons
         HBox buttonBox = new HBox(15);
         buttonBox.setAlignment(Pos.CENTER_RIGHT);
-        buttonBox.setPadding(new Insets(10, 0, 0, 0));
 
         Button cancelBtn = new Button("Cancel");
         cancelBtn.setPrefWidth(120);
@@ -137,7 +146,7 @@ public class CreateShiftModal {
 
         buttonBox.getChildren().addAll(cancelBtn, createBtn);
 
-        root.getChildren().addAll(header, scrollPane, buttonBox);
+        root.getChildren().addAll(header, formBox, buttonBox);
 
         Scene scene = new Scene(root);
         dialogStage.setScene(scene);
@@ -175,6 +184,22 @@ public class CreateShiftModal {
         box.getChildren().addAll(label, field, errorLabel);
         return box;
     }
+    
+    private VBox createComboBoxWithError(String labelText, ComboBox<String> comboBox, Label errorLabel) {
+        VBox box = new VBox(5);
+        box.setMaxWidth(Double.MAX_VALUE);
+
+        Label label = new Label(labelText);
+        label.setFont(Font.font("Arial", FontWeight.SEMI_BOLD, 14));
+        label.setStyle("-fx-text-fill: #2c3e50;");
+
+        comboBox.setPrefHeight(45);
+        errorLabel.setFont(Font.font("Arial", 12));
+        errorLabel.setStyle("-fx-text-fill: #e74c3c;");
+
+        box.getChildren().addAll(label, comboBox, errorLabel);
+        return box;
+    }
 
     private VBox createDateFieldWithError(String labelText, DatePicker datePicker, Label errorLabel) {
         VBox box = new VBox(5);
@@ -185,9 +210,6 @@ public class CreateShiftModal {
         label.setStyle("-fx-text-fill: #2c3e50;");
 
         datePicker.setPrefHeight(45);
-        datePicker.setMaxWidth(Double.MAX_VALUE);
-        datePicker.setStyle("-fx-font-size: 14px;");
-
         errorLabel.setFont(Font.font("Arial", 12));
         errorLabel.setStyle("-fx-text-fill: #e74c3c;");
 
@@ -195,104 +217,115 @@ public class CreateShiftModal {
         return box;
     }
 
-    private VBox createEmployeeCheckboxList() {
-        VBox listBox = new VBox(10);
-        listBox.setPadding(new Insets(15));
-        listBox.setStyle("-fx-background-color: #f9fafb; -fx-background-radius: 8; " +
-                "-fx-border-color: #e5e7eb; -fx-border-radius: 8;");
-        listBox.setMaxHeight(200);
-
-        String[][] employees = {
-            {"Sarah Johnson", "Senior Referee • Basketball, Soccer"},
-            {"Michael Chen", "Event Coordinator • Football, Baseball"},
-            {"Emily Rodriguez", "Team Lead • Hockey, Volleyball"},
-            {"David Park", "Sports Official • Tennis, Badminton"}
-        };
-
-        for (String[] emp : employees) {
-            CheckBox checkBox = new CheckBox();
-            
-            VBox empBox = new VBox(3);
-            Label nameLabel = new Label(emp[0]);
-            nameLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
-            nameLabel.setStyle("-fx-text-fill: #1f2937;");
-            
-            Label detailsLabel = new Label(emp[1]);
-            detailsLabel.setFont(Font.font("Arial", 12));
-            detailsLabel.setStyle("-fx-text-fill: #6b7280;");
-            
-            empBox.getChildren().addAll(nameLabel, detailsLabel);
-
-            HBox empRow = new HBox(12);
-            empRow.setAlignment(Pos.CENTER_LEFT);
-            empRow.getChildren().addAll(checkBox, empBox);
-
-            listBox.getChildren().add(empRow);
-        }
-
-        ScrollPane scrollPane = new ScrollPane(listBox);
-        scrollPane.setFitToWidth(true);
-        scrollPane.setPrefHeight(200);
-        scrollPane.setStyle("-fx-background-color: transparent;");
-
-        VBox wrapper = new VBox(scrollPane);
-        return wrapper;
-    }
-
     private void handleCreateShift() {
         clearErrors();
         boolean isValid = true;
 
-        if (eventNameField.getText().trim().isEmpty()) {
-            eventNameError.setText("Event name is required");
+        // Validate Sport
+        if (sportComboBox.getValue() == null) {
+            sportError.setText("Please select a sport");
             isValid = false;
         }
 
+        // Validate Location
         if (locationField.getText().trim().isEmpty()) {
             locationError.setText("Location is required");
             isValid = false;
         }
 
+        // Validate Date
         if (datePicker.getValue() == null) {
             dateError.setText("Date is required");
             isValid = false;
         }
 
-        if (requiredStaffField.getText().trim().isEmpty()) {
-            staffError.setText("Required staff is required");
+        // Validate Times
+        LocalTime startTime = null;
+        LocalTime endTime = null;
+        
+        try {
+            startTime = LocalTime.parse(startTimeField.getText().trim());
+        } catch (Exception e) {
+            startTimeError.setText("Invalid time format (use HH:MM)");
             isValid = false;
         }
-
-        if (startTimeField.getText().trim().isEmpty()) {
-            startTimeError.setText("Start time is required");
+        
+        try {
+            endTime = LocalTime.parse(endTimeField.getText().trim());
+        } catch (Exception e) {
+            endTimeError.setText("Invalid time format (use HH:MM)");
             isValid = false;
         }
-
-        if (endTimeField.getText().trim().isEmpty()) {
-            endTimeError.setText("End time is required");
+        
+        if (startTime != null && endTime != null && !startTime.isBefore(endTime)) {
+            endTimeError.setText("End time must be after start time");
             isValid = false;
         }
 
         if (isValid) {
-            // TODO: Save shift to database
-            System.out.println("Creating shift: " + eventNameField.getText());
-            
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Success");
-            alert.setHeaderText(null);
-            alert.setContentText("Shift created successfully!");
-            alert.showAndWait();
-            
-            dialogStage.close();
+            try {
+                // Create the game schedule
+                // Note: You'll need to get sport ID from sport name
+                // For now, using dummy sport ID
+                int sportId = getSportIdFromName(sportComboBox.getValue());
+                
+                Schedule.Game game = new Schedule.Game(
+                    sportId,
+                    datePicker.getValue(),
+                    startTime,
+                    endTime,
+                    locationField.getText().trim(),
+                    supervisorSpinner.getValue(),
+                    refereeSpinner.getValue(),
+                    schedulingController.getCurrentCycle().getCycleStart(),
+                    schedulingController.getCurrentCycle().getCycleEnd(),
+                    1 // createdBy - should be current user ID
+                );
+                
+                // Add to current cycle
+                schedulingController.getCurrentCycle().addGameSchedule(game);
+                game.generateShifts();
+                
+                shiftCreated = true;
+                
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Success");
+                alert.setHeaderText(null);
+                alert.setContentText("Shift created successfully!");
+                alert.showAndWait();
+                
+                dialogStage.close();
+            } catch (Exception e) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Error");
+                alert.setHeaderText(null);
+                alert.setContentText("Failed to create shift: " + e.getMessage());
+                alert.showAndWait();
+            }
+        }
+    }
+    
+    private int getSportIdFromName(String sportName) {
+        // Map sport names to IDs
+        switch (sportName) {
+            case "Basketball": return 1;
+            case "Soccer": return 2;
+            case "Cricket": return 3;
+            case "Volleyball": return 4;
+            case "Pickleball": return 5;
+            default: return 1;
         }
     }
 
     private void clearErrors() {
-        eventNameError.setText("");
+        sportError.setText("");
         locationError.setText("");
         dateError.setText("");
-        staffError.setText("");
         startTimeError.setText("");
         endTimeError.setText("");
+    }
+    
+    public boolean wasShiftCreated() {
+        return shiftCreated;
     }
 }
