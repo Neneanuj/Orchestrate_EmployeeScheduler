@@ -45,7 +45,7 @@ public class LoginController {
     }
     
     /**
-     * Validate credentials format - SIMPLIFIED (no constraints)
+     * Validate credentials format before attempting login
      */
     public String validateCredentials(String username, String password) {
         if (username == null || username.trim().isEmpty()) {
@@ -54,7 +54,17 @@ public class LoginController {
         if (password == null || password.trim().isEmpty()) {
             return "Password is required";
         }
-        // NO minimum length requirements - accept any password!
+        
+        // BUG-F008: Validate username format (alphanumeric, underscore, dash only)
+        if (!username.matches("^[a-zA-Z0-9_-]{3,20}$")) {
+            return "Username must be 3-20 characters (letters, numbers, underscore, dash only)";
+        }
+        
+        // BUG-F009: Enforce minimum 8 characters for password
+        if (password.length() < 8) {
+            return "Password must be at least 8 characters";
+        }
+        
         return null; // Valid
     }
 }

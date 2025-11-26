@@ -8,6 +8,10 @@ Write-Host "Native lib path: $NativeLibPath"
 
 # compile
 New-Item -ItemType Directory -Path out -Force | Out-Null
+
+# Copy application.properties to classpath
+Copy-Item "resources\config\application.properties" "out\application.properties" -Force
+
 $srcFiles = Get-ChildItem -Recurse -Filter *.java -Path src | ForEach-Object { $_.FullName }
 Write-Host "Compiling sources..."
 javac --module-path "$JavaFXLib" --add-modules javafx.controls -d out $srcFiles

@@ -124,6 +124,17 @@ public class AddEmployeeModal {
         HBox nameRow = new HBox(15);
         firstNameField = createStyledTextField("John");
         lastNameField = createStyledTextField("Doe");
+        // BUG-F018: Auto-trim name fields on focus lost
+        firstNameField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal) {
+                firstNameField.setText(firstNameField.getText().trim());
+            }
+        });
+        lastNameField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal) {
+                lastNameField.setText(lastNameField.getText().trim());
+            }
+        });
         HBox.setHgrow(firstNameField, Priority.ALWAYS);
         HBox.setHgrow(lastNameField, Priority.ALWAYS);
         nameRow.getChildren().addAll(firstNameField, lastNameField);
@@ -304,12 +315,25 @@ public class AddEmployeeModal {
     }
     
     private boolean validate() {
-        if (firstNameField.getText().trim().isEmpty()) {
+        String firstName = firstNameField.getText().trim();
+        String lastName = lastNameField.getText().trim();
+        
+        if (firstName.isEmpty()) {
             showError("First name is required");
             return false;
         }
-        if (lastNameField.getText().trim().isEmpty()) {
+        // BUG-F003: Validate name contains only letters, spaces, hyphens, apostrophes
+        if (!firstName.matches("^[a-zA-Z\\s'-]+$")) {
+            showError("First name must contain only letters, spaces, hyphens, or apostrophes");
+            return false;
+        }
+        if (lastName.isEmpty()) {
             showError("Last name is required");
+            return false;
+        }
+        // BUG-F003: Validate name contains only letters
+        if (!lastName.matches("^[a-zA-Z\\s'-]+$")) {
+            showError("Last name must contain only letters, spaces, hyphens, or apostrophes");
             return false;
         }
         if (!availabilityCheckboxes.values().stream().anyMatch(CheckBox::isSelected)) {

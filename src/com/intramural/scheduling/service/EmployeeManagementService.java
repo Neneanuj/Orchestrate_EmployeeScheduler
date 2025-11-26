@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 public class EmployeeManagementService {
-    private UserDAO userDAO;
+    private UserDao userDAO;
     private EmployeeDAO employeeDAO;
     private AvailabilityDAO availabilityDAO;
     private WeeklyHoursDAO weeklyHoursDAO;
@@ -16,7 +16,7 @@ public class EmployeeManagementService {
     private AuthenticationService authService;
     
     public EmployeeManagementService() {
-        this.userDAO = new UserDAO();
+        this.userDAO = new UserDao();
         this.employeeDAO = new EmployeeDAO();
         this.availabilityDAO = new AvailabilityDAO();
         this.weeklyHoursDAO = new WeeklyHoursDAO();
@@ -40,11 +40,30 @@ public class EmployeeManagementService {
         if (firstName == null || firstName.trim().isEmpty()) {
             throw new IllegalArgumentException("First name is required");
         }
+        // BUG-F003: Validate first name contains only valid characters
+        if (!firstName.matches("^[a-zA-Z\\s'-]+$")) {
+            throw new IllegalArgumentException("First name must contain only letters, spaces, hyphens, or apostrophes");
+        }
         if (lastName == null || lastName.trim().isEmpty()) {
             throw new IllegalArgumentException("Last name is required");
         }
+        // BUG-F003: Validate last name contains only valid characters
+        if (!lastName.matches("^[a-zA-Z\\s'-]+$")) {
+            throw new IllegalArgumentException("Last name must contain only letters, spaces, hyphens, or apostrophes");
+        }
         if (sportIds == null || sportIds.isEmpty()) {
             throw new IllegalArgumentException("At least one sport must be selected");
+        }
+        
+        // BUG-F005: Check for duplicate employee names
+        try {
+            if (employeeDAO.nameExists(firstName.trim(), lastName.trim())) {
+                throw new IllegalArgumentException(
+                    "An employee named '" + firstName.trim() + " " + lastName.trim() + 
+                    "' already exists. Please use a different name or add a middle initial.");
+            }
+        } catch (SQLException e) {
+            throw new SQLException("Error checking for duplicate names: " + e.getMessage(), e);
         }
         
         try {

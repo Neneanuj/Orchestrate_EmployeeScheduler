@@ -12,14 +12,14 @@ public class StaffDashboardController {
     private EmployeeDAO employeeDAO;
     private GameScheduleDAO gameScheduleDAO;
     private WeeklyHoursDAO weeklyHoursDAO;
-    //private TimeOffDAO timeOffDAO;
+    // private TimeOffDAO timeOffDAO;
     private HoursTracker hoursTracker;
     
     public StaffDashboardController() {
         this.employeeDAO = new EmployeeDAO();
         this.gameScheduleDAO = new GameScheduleDAO();
         this.weeklyHoursDAO = new WeeklyHoursDAO();
-        //this.timeOffDAO = new TimeOffDAO();
+        // this.timeOffDAO = new TimeOffDAO();
         this.hoursTracker = new HoursTracker();
     }
     
@@ -79,32 +79,22 @@ public class StaffDashboardController {
     }
     
     /**
-//     * Get pending time-off requests for employee
-//     */
-//    public List<TimeOffRequest> getPendingTimeOffRequests(int employeeId) 
-//            throws SQLException {
-//        LocalDate today = LocalDate.now();
-//        LocalDate futureDate = today.plusMonths(3);
-//        
-//        return timeOffDAO.getApprovedByEmployee(employeeId, today, futureDate)
-//            .stream()
-//            .filter(req -> req.getStatus() == TimeOffRequest.Status.PENDING)
-//            .collect(Collectors.toList());
-//    }
-//    
-//    /**
-//     * Get approved time-offs for employee
-//     */
-//    public List<TimeOffRequest> getApprovedTimeOffs(int employeeId) 
-//            throws SQLException {
-//        LocalDate today = LocalDate.now();
-//        LocalDate futureDate = today.plusMonths(3);
-//        
-//        return timeOffDAO.getApprovedByEmployee(employeeId, today, futureDate)
-//            .stream()
-//            .filter(req -> req.getStatus() == TimeOffRequest.Status.APPROVED)
-//            .collect(Collectors.toList());
-//    }
+     * Get pending time-off requests for employee
+     */
+    public List<TimeOffRequest> getPendingTimeOffRequests(int employeeId) {
+        // return timeOffDAO.getPendingTimeOffRequests(employeeId);
+        return new ArrayList<>();
+    }
+    
+    /**
+     * Get approved time-offs for employee
+     */
+    public List<TimeOffRequest> getApprovedTimeOffs(int employeeId) {
+        // return timeOffDAO.getTimeOffRequestsByEmployee(employeeId).stream()
+        //     .filter(req -> "APPROVED".equals(req.getRequestStatus()))
+        //     .collect(Collectors.toList());
+        return new ArrayList<>();
+    }
     
     /**
      * Get staff dashboard statistics
@@ -130,8 +120,8 @@ public class StaffDashboardController {
         stats.put("remainingHours", getRemainingHours(employeeId));
         
         // Pending requests
-        stats.put("pendingRequests", 0);
-        //stats.put("pendingRequests", getPendingTimeOffRequests(employeeId).size());
+        // stats.put("pendingRequests", getPendingTimeOffRequests(employeeId).size());
+        stats.put("pendingRequests", 0); // TODO: Implement getPendingTimeOffRequests
         
         return stats;
     }
