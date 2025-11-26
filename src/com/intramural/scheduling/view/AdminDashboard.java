@@ -367,7 +367,7 @@ public class AdminDashboard {
             optionALabel.setStyle("-fx-background-color: #dbeafe; -fx-text-fill: #1e40af; " +
                     "-fx-padding: 4 10 4 10; -fx-background-radius: 4;");
             
-            if (optionB != null && !optionB.getEmployeeId().equals(optionA.getEmployeeId())) {
+            if (optionB != null && optionB.getEmployeeId() != optionA.getEmployeeId()) {
                 Label optionBLabel = new Label("Option B: " + optionB.getFirstName() + " " + optionB.getLastName());
                 optionBLabel.setFont(Font.font("Arial", 11));
                 optionBLabel.setStyle("-fx-background-color: #fef3c7; -fx-text-fill: #92400e; " +

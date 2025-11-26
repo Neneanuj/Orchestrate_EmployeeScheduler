@@ -1,7 +1,7 @@
 package com.intramural.scheduling.service;
 
 import com.intramural.scheduling.dao.AvailabilityDAO;
-import com.intramural.scheduling.dao.TimeOffDAO;
+// import com.intramural.scheduling.dao.TimeOffDAO;
 import com.intramural.scheduling.model.Availability;
 import com.intramural.scheduling.model.TimeOffRequest;
 import java.sql.SQLException;
@@ -12,11 +12,9 @@ import java.util.List;
 
 public class AvailabilityService {
     private AvailabilityDAO availabilityDAO;
-    private TimeOffDAO timeOffDAO;
     
     public AvailabilityService() {
         this.availabilityDAO = new AvailabilityDAO();
-        this.timeOffDAO = new TimeOffDAO();
     }
     
     /**
@@ -88,7 +86,7 @@ public class AvailabilityService {
                                         startTime, endTime, reason);
         }
         
-        timeOffDAO.insert(request);
+        // timeOffDAO.insert(request);
         return request;
     }
     
@@ -97,11 +95,11 @@ public class AvailabilityService {
      */
     public void approveTimeOffRequest(int requestId, int reviewerId) 
             throws SQLException {
-        TimeOffRequest request = timeOffDAO.getById(requestId);
-        if (request != null) {
-            request.approve(reviewerId);
-            timeOffDAO.updateStatus(requestId, TimeOffRequest.Status.APPROVED, reviewerId);
-        }
+        // TimeOffRequest request = timeOffDAO.getById(requestId);
+        // if (request != null) {
+        //     request.approve(reviewerId);
+        //     timeOffDAO.updateStatus(requestId, TimeOffRequest.Status.APPROVED, reviewerId);
+        // }
     }
     
     /**
@@ -109,18 +107,19 @@ public class AvailabilityService {
      */
     public void denyTimeOffRequest(int requestId, int reviewerId) 
             throws SQLException {
-        TimeOffRequest request = timeOffDAO.getById(requestId);
-        if (request != null) {
-            request.deny(reviewerId);
-            timeOffDAO.updateStatus(requestId, TimeOffRequest.Status.DENIED, reviewerId);
-        }
+        // TimeOffRequest request = timeOffDAO.getById(requestId);
+        // if (request != null) {
+        //     request.deny(reviewerId);
+        //     timeOffDAO.updateStatus(requestId, TimeOffRequest.Status.DENIED, reviewerId);
+        // }
     }
     
     /**
      * Get pending time-off requests
      */
     public List<TimeOffRequest> getPendingTimeOffRequests() throws SQLException {
-        return timeOffDAO.getPendingRequests();
+        // return timeOffDAO.getPendingRequests();
+        return new java.util.ArrayList<>();
     }
     
     /**
@@ -130,7 +129,8 @@ public class AvailabilityService {
                                                     LocalDate startDate,
                                                     LocalDate endDate) 
                                                     throws SQLException {
-        return timeOffDAO.getApprovedByEmployee(employeeId, startDate, endDate);
+        // return timeOffDAO.getApprovedByEmployee(employeeId, startDate, endDate);
+        return new java.util.ArrayList<>();
     }
     
     /**

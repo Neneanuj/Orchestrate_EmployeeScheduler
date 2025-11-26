@@ -166,6 +166,12 @@ public class CreateShiftView {
         locationField.setPromptText("e.g., Field A, Court 1");
         locationField.setPrefWidth(400);
         locationField.setPrefHeight(40);
+        // BUG-F018: Trim input automatically on focus lost
+        locationField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal) {
+                locationField.setText(locationField.getText().trim());
+            }
+        });
         locationError = createErrorLabel();
 
         section.getChildren().addAll(
@@ -197,7 +203,8 @@ public class CreateShiftView {
         
         VBox supervisorsBox = new VBox(10);
         Label supervisorsLabel = createLabel("Supervisors Needed");
-        supervisorsSpinner = new Spinner<>(0, 5, 1);
+        // BUG-F011: Changed min from 0 to 1 - all shifts need at least 1 supervisor
+        supervisorsSpinner = new Spinner<>(1, 5, 1);
         supervisorsSpinner.setPrefWidth(120);
         supervisorsSpinner.setPrefHeight(40);
         supervisorsBox.getChildren().addAll(supervisorsLabel, supervisorsSpinner);
@@ -337,6 +344,14 @@ public class CreateShiftView {
         if (datePicker.getValue() == null) {
             dateError.setText("Date is required");
             valid = false;
+        } else if (datePicker.getValue().isBefore(LocalDate.now())) {
+            // BUG-F001: Prevent scheduling shifts for past dates
+            dateError.setText("Cannot schedule shifts for past dates");
+            valid = false;
+        } else if (datePicker.getValue().isAfter(LocalDate.now().plusYears(1))) {
+            // BUG-F027: Prevent unrealistic future dates
+            dateError.setText("Cannot schedule shifts more than 1 year in advance");
+            valid = false;
         }
         
         if (startTimeCombo.getValue() == null) {
@@ -352,14 +367,20 @@ public class CreateShiftView {
         if (startTimeCombo.getValue() != null && endTimeCombo.getValue() != null) {
             LocalTime start = parseTime(startTimeCombo.getValue());
             LocalTime end = parseTime(endTimeCombo.getValue());
-            if (!start.isBefore(end)) {
+            // BUG-F006: Check for equal times (0-duration shifts)
+            if (start.compareTo(end) >= 0) {
                 endTimeError.setText("End time must be after start time");
                 valid = false;
             }
         }
         
-        if (locationField.getText().trim().isEmpty()) {
+        String location = locationField.getText().trim();
+        if (location.isEmpty()) {
             locationError.setText("Location is required");
+            valid = false;
+        } else if (location.length() > 100) {
+            // BUG-F016: Add maximum length validation
+            locationError.setText("Location must be 100 characters or less");
             valid = false;
         }
         

@@ -143,15 +143,17 @@ public class ShiftDAO {
      * Version 1: Takes shiftId and employeeId separately
      */
     public void updateAssignment(int shiftId, int employeeId) throws SQLException {
+        // BUG-010: Use Timestamp instead of SQL Server specific GETDATE()
         String sql = "UPDATE shifts SET assigned_employee_id = ?, " +
-                    "assignment_status = 'ASSIGNED', assigned_at = GETDATE() " +
+                    "assignment_status = 'ASSIGNED', assigned_at = ? " +
                     "WHERE shift_id = ?";
         
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             
             stmt.setInt(1, employeeId);
-            stmt.setInt(2, shiftId);
+            stmt.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
+            stmt.setInt(3, shiftId);
             
             stmt.executeUpdate();
         }

@@ -121,7 +121,7 @@ public class SchedulingController {
                                  " " + recs.get(0).getEmployee().getLastName() + 
                                  " (Score: " + String.format("%.2f", recs.get(0).getScore()) + ")");
                 
-                if (recs.size() >= 2 && !recs.get(1).getEmployee().getEmployeeId().equals(optionA)) {
+               if (recs.size() >= 2 && recs.get(1).getEmployee().getEmployeeId() != optionA) {
                     System.out.println("Option B: " + recs.get(1).getEmployee().getFirstName() + 
                                      " " + recs.get(1).getEmployee().getLastName() + 
                                      " (Score: " + String.format("%.2f", recs.get(1).getScore()) + ")");

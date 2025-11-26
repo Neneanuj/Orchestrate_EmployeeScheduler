@@ -5,7 +5,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class UserDAO {
+public class UserDao {
     
     /**
      * Insert new user
@@ -16,7 +16,8 @@ public class UserDAO {
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             
-            stmt.setString(1, user.getUsername());
+            // BUG-F019: Normalize username to lowercase for consistency
+            stmt.setString(1, user.getUsername().toLowerCase());
             stmt.setString(2, user.getPasswordHash());
             stmt.setString(3, user.getRole().name());  // Use .name() for enum
             
@@ -39,7 +40,8 @@ public class UserDAO {
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             
-            stmt.setString(1, user.getUsername());
+            // BUG-F019: Normalize username to lowercase
+            stmt.setString(1, user.getUsername().toLowerCase());
             stmt.setString(2, user.getPasswordHash());
             stmt.setString(3, user.getRole().name());
             stmt.setInt(4, user.getUserId());
@@ -57,7 +59,8 @@ public class UserDAO {
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             
-            stmt.setString(1, username);
+            // BUG-F019: Normalize username to lowercase for case-insensitive search
+            stmt.setString(1, username.toLowerCase());
             
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
@@ -97,7 +100,8 @@ public class UserDAO {
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             
-            stmt.setString(1, username);
+            // BUG-F019: Normalize username to lowercase
+            stmt.setString(1, username.toLowerCase());
             
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
@@ -106,6 +110,22 @@ public class UserDAO {
             }
         }
         return false;
+    }
+    
+    /**
+     * REQ-007: Delete user by ID
+     * @param userId User ID to delete
+     * @return true if user was deleted
+     */
+    public boolean delete(int userId) throws SQLException {
+        String sql = "DELETE FROM users WHERE user_id = ?";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setInt(1, userId);
+            return stmt.executeUpdate() > 0;
+        }
     }
     
     /**
