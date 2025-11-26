@@ -12,14 +12,14 @@ public class StaffDashboardController {
     private EmployeeDAO employeeDAO;
     private GameScheduleDAO gameScheduleDAO;
     private WeeklyHoursDAO weeklyHoursDAO;
-    private TimeOffDAO timeOffDAO;
+    //private TimeOffDAO timeOffDAO;
     private HoursTracker hoursTracker;
     
     public StaffDashboardController() {
         this.employeeDAO = new EmployeeDAO();
         this.gameScheduleDAO = new GameScheduleDAO();
         this.weeklyHoursDAO = new WeeklyHoursDAO();
-        this.timeOffDAO = new TimeOffDAO();
+        //this.timeOffDAO = new TimeOffDAO();
         this.hoursTracker = new HoursTracker();
     }
     
@@ -130,7 +130,8 @@ public class StaffDashboardController {
         stats.put("remainingHours", getRemainingHours(employeeId));
         
         // Pending requests
-        stats.put("pendingRequests", getPendingTimeOffRequests(employeeId).size());
+        stats.put("pendingRequests", 0);
+        //stats.put("pendingRequests", getPendingTimeOffRequests(employeeId).size());
         
         return stats;
     }

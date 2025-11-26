@@ -14,13 +14,15 @@ public class SchedulingEngine {
     private static final double WEIGHT_PREFERENCE = 15.0;
     private static final double WEIGHT_EXPERIENCE = 10.0;
     
+    // NEW: Penalty for being already recommended
+    private static final double PENALTY_ALREADY_RECOMMENDED = 50.0;
+    
     public SchedulingEngine() {
         this.conflictChecker = new ConflictChecker();
     }
     
     /**
-     * Generate top 2 recommendations for a specific shift
-     * Returns Option A and Option B based on scoring algorithm
+     * ORIGINAL METHOD: Kept for backward compatibility
      */
     public List<SchedulingRecommendation> generateRecommendations(
             Schedule.Shift shift,
@@ -33,6 +35,31 @@ public class SchedulingEngine {
             Map<Integer, List<Schedule.Game>> existingGamesMap,
             Map<Integer, Tracking.WeeklyHours> weeklyHoursMap) {
         
+        // Call new method with empty exclusion set
+        return generateRecommendationsWithExclusions(
+            shift, game, sport, eligibleEmployees,
+            availabilityMap, conflictsMap, timeOffMap,
+            existingGamesMap, weeklyHoursMap,
+            new HashSet<>()
+        );
+    }
+    
+    /**
+     * NEW METHOD: Generate recommendations with employee exclusion tracking
+     * This prevents the same employees from being recommended for all positions
+     */
+    public List<SchedulingRecommendation> generateRecommendationsWithExclusions(
+            Schedule.Shift shift,
+            Schedule.Game game,
+            Sport sport,
+            List<Employee> eligibleEmployees,
+            Map<Integer, List<Availability.Seasonal>> availabilityMap,
+            Map<Integer, List<Availability.PermanentConflict>> conflictsMap,
+            Map<Integer, List<TimeOffRequest>> timeOffMap,
+            Map<Integer, List<Schedule.Game>> existingGamesMap,
+            Map<Integer, Tracking.WeeklyHours> weeklyHoursMap,
+            Set<Integer> alreadyRecommendedAsOptionA) {
+        
         List<SchedulingRecommendation> recommendations = new ArrayList<>();
         
         // Filter by position type eligibility
@@ -44,6 +71,8 @@ public class SchedulingEngine {
                 return true; // All employees can be referees
             })
             .collect(Collectors.toList());
+        
+        System.out.println("Eligible employees after position filter: " + filtered.size());
         
         // Score each employee
         for (Employee employee : filtered) {
@@ -59,9 +88,22 @@ public class SchedulingEngine {
                 weeklyHoursMap.get(employee.getEmployeeId())
             );
             
+            // NEW: Apply penalty if already recommended as Option A
+            if (alreadyRecommendedAsOptionA.contains(employee.getEmployeeId())) {
+                rec.addScoreComponent("Already Recommended Penalty", -PENALTY_ALREADY_RECOMMENDED);
+                rec.addWarning("Already recommended for another position in this game");
+                System.out.println("  Applied penalty to " + employee.getFirstName() + " " + 
+                                 employee.getLastName() + " (already recommended)");
+            }
+            
             // Only include valid recommendations (no hard constraint violations)
             if (rec.isValid()) {
                 recommendations.add(rec);
+                System.out.println("  " + employee.getFirstName() + " " + employee.getLastName() + 
+                                 " - Score: " + String.format("%.2f", rec.getScore()));
+            } else {
+                System.out.println("  " + employee.getFirstName() + " " + employee.getLastName() + 
+                                 " - REJECTED: " + rec.getViolations());
             }
         }
         
@@ -227,9 +269,12 @@ public class SchedulingEngine {
         for (Schedule.Game game : cycle.getGameSchedules()) {
             Sport sport = sportsMap.get(game.getSportId());
             
+            // Track already-recommended employees for this game
+            Set<Integer> alreadyRecommendedAsOptionA = new HashSet<>();
+            
             // Process each shift in the game
             for (Schedule.Shift shift : game.getShifts()) {
-                List<SchedulingRecommendation> recs = generateRecommendations(
+                List<SchedulingRecommendation> recs = generateRecommendationsWithExclusions(
                     shift,
                     game,
                     sport,
@@ -238,17 +283,21 @@ public class SchedulingEngine {
                     conflictsMap,
                     timeOffMap,
                     existingGamesMap,
-                    weeklyHoursMap
+                    weeklyHoursMap,
+                    alreadyRecommendedAsOptionA
                 );
                 
                 allRecommendations.put(shift.getShiftId(), recs);
                 
-                // Update recommendations in shift
+                // Update recommendations in shift and track Option A
                 if (recs.size() >= 1) {
                     int optionAId = recs.get(0).getEmployee().getEmployeeId();
                     int optionBId = recs.size() >= 2 ? 
                         recs.get(1).getEmployee().getEmployeeId() : optionAId;
                     shift.setRecommendations(optionAId, optionBId);
+                    
+                    // Track Option A to avoid in next shifts
+                    alreadyRecommendedAsOptionA.add(optionAId);
                 }
             }
         }

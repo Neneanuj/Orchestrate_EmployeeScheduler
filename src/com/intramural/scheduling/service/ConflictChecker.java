@@ -67,11 +67,15 @@ public class ConflictChecker {
     
     /**
      * Check if employee has seasonal availability for this game
+     * MVP MODE: Empty availability list = assume available
      */
     private boolean hasSeasonalAvailability(List<Availability.Seasonal> availability,
                                            Schedule.Game game) {
+        // MVP MODE: If no availability data provided, assume employee is available
+        // This allows the system to work without detailed availability configuration
         if (availability == null || availability.isEmpty()) {
-            return false;
+            System.out.println("[MVP MODE] No availability data - assuming employee is available");
+            return true;  // ✅ FIXED: Changed from false to true for MVP
         }
         
         LocalDateTime gameStart = game.getStartDateTime();
