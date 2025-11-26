@@ -2,6 +2,10 @@
 
 A desktop application for managing employee schedules in intramural sports programs. Built with JavaFX and SQL Server.
 
+## Presentation
+
+The presentation is added to the Repo in Visible PDF
+
 ## What This Does
 
 This is a scheduling app I built to help manage staff for sports programs. It handles:

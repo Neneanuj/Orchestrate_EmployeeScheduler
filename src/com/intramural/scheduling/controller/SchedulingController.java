@@ -39,7 +39,7 @@ public class SchedulingController {
     }
     
     /**
-     * Auto-generate recommendations for a single game - SIMPLIFIED FOR MVP
+     * FIXED: Auto-generate recommendations with employee tracking to avoid duplicates
      */
     public void autoGenerateRecommendations(Schedule.Game game) throws SQLException {
         System.out.println("=== Auto-Generating Recommendations ===");
@@ -96,16 +96,21 @@ public class SchedulingController {
             }
         }
         
+        // NEW: Track already-recommended employees for this game
+        Set<Integer> alreadyRecommendedAsOptionA = new HashSet<>();
+        
         // Generate recommendations for each shift
         int recommendationsGenerated = 0;
         for (Schedule.Shift shift : game.getShifts()) {
             System.out.println("\n--- Generating for Shift " + shift.getShiftId() + 
                              " (" + shift.getPositionType() + " #" + shift.getPositionNumber() + ") ---");
             
-            List<SchedulingRecommendation> recs = schedulingEngine.generateRecommendations(
+            // NEW: Pass set of already-recommended employees
+            List<SchedulingRecommendation> recs = schedulingEngine.generateRecommendationsWithExclusions(
                 shift, game, sport, allEmployees,
                 availabilityMap, conflictsMap, timeOffMap,
-                existingGamesMap, weeklyHoursMap
+                existingGamesMap, weeklyHoursMap,
+                alreadyRecommendedAsOptionA  // NEW PARAMETER
             );
             
             System.out.println("Generated " + recs.size() + " recommendations");
@@ -114,6 +119,9 @@ public class SchedulingController {
                 Integer optionA = recs.get(0).getEmployee().getEmployeeId();
                 Integer optionB = recs.size() >= 2 ? 
                     recs.get(1).getEmployee().getEmployeeId() : optionA;
+                
+                // NEW: Track Option A employee to avoid recommending again
+                alreadyRecommendedAsOptionA.add(optionA);
                 
                 shift.setRecommendations(optionA, optionB);
                 
@@ -226,5 +234,23 @@ public class SchedulingController {
     
     public List<SchedulingRecommendation> getRecommendations(int shiftId) {
         return recommendations.getOrDefault(shiftId, new ArrayList<>());
+    }
+    
+    /**
+     * Assign an employee to a shift and update hours tracking
+     */
+    public void assignShift(Schedule.Shift shift, int employeeId, Schedule.Game game) throws SQLException {
+        System.out.println("Assigning employee " + employeeId + " to shift " + shift.getShiftId());
+        
+        // Assign employee to shift
+        shift.assignEmployee(employeeId);
+        
+        // Update database
+        shiftDAO.updateAssignment(shift.getShiftId(), employeeId);
+        
+        // Update weekly hours tracking
+        hoursTracker.assignShift(employeeId, game);
+        
+        System.out.println("Assignment completed successfully");
     }
 }

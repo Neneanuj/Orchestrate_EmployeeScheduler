@@ -3,10 +3,8 @@ package com.intramural.scheduling.service;
 import com.intramural.scheduling.dao.AvailabilityDAO;
 // import com.intramural.scheduling.dao.TimeOffDAO;
 import com.intramural.scheduling.model.Availability;
-import com.intramural.scheduling.model.TimeOffRequest;
 import java.sql.SQLException;
 import java.time.DayOfWeek;
-import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 
@@ -65,72 +63,6 @@ public class AvailabilityService {
     public List<Availability.PermanentConflict> getPermanentConflicts(int employeeId) 
             throws SQLException {
         return availabilityDAO.getConflictsByEmployee(employeeId);
-    }
-    
-    /**
-     * Submit time-off request
-     */
-    public TimeOffRequest submitTimeOffRequest(int employeeId, 
-                                               LocalDate requestDate,
-                                               boolean isFullDay,
-                                               LocalTime startTime,
-                                               LocalTime endTime,
-                                               String reason) 
-                                               throws SQLException {
-        TimeOffRequest request;
-        
-        if (isFullDay) {
-            request = new TimeOffRequest(employeeId, requestDate, true, reason);
-        } else {
-            request = new TimeOffRequest(employeeId, requestDate, 
-                                        startTime, endTime, reason);
-        }
-        
-        // timeOffDAO.insert(request);
-        return request;
-    }
-    
-    /**
-     * Approve time-off request
-     */
-    public void approveTimeOffRequest(int requestId, int reviewerId) 
-            throws SQLException {
-        // TimeOffRequest request = timeOffDAO.getById(requestId);
-        // if (request != null) {
-        //     request.approve(reviewerId);
-        //     timeOffDAO.updateStatus(requestId, TimeOffRequest.Status.APPROVED, reviewerId);
-        // }
-    }
-    
-    /**
-     * Deny time-off request
-     */
-    public void denyTimeOffRequest(int requestId, int reviewerId) 
-            throws SQLException {
-        // TimeOffRequest request = timeOffDAO.getById(requestId);
-        // if (request != null) {
-        //     request.deny(reviewerId);
-        //     timeOffDAO.updateStatus(requestId, TimeOffRequest.Status.DENIED, reviewerId);
-        // }
-    }
-    
-    /**
-     * Get pending time-off requests
-     */
-    public List<TimeOffRequest> getPendingTimeOffRequests() throws SQLException {
-        // return timeOffDAO.getPendingRequests();
-        return new java.util.ArrayList<>();
-    }
-    
-    /**
-     * Get approved time-offs for an employee in a date range
-     */
-    public List<TimeOffRequest> getApprovedTimeOffs(int employeeId,
-                                                    LocalDate startDate,
-                                                    LocalDate endDate) 
-                                                    throws SQLException {
-        // return timeOffDAO.getApprovedByEmployee(employeeId, startDate, endDate);
-        return new java.util.ArrayList<>();
     }
     
     /**

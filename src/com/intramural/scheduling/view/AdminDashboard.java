@@ -2,13 +2,8 @@ package com.intramural.scheduling.view;
 
 import com.intramural.scheduling.controller.AdminDashboardController;
 import com.intramural.scheduling.controller.SchedulingController;
-import com.intramural.scheduling.dao.EmployeeDAO;
-import com.intramural.scheduling.dao.GameScheduleDAO;
-import com.intramural.scheduling.dao.ShiftDAO;
-import com.intramural.scheduling.dao.SportDAO;
-import com.intramural.scheduling.model.Employee;
-import com.intramural.scheduling.model.Schedule;
-import com.intramural.scheduling.model.Sport;
+import com.intramural.scheduling.dao.*;
+import com.intramural.scheduling.model.*;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -19,11 +14,19 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import java.sql.SQLException;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
+/**
+ * FULLY ENHANCED AdminDashboard with:
+ * - Expandable/collapsible shift cards
+ * - Shows assigned employees after finalization
+ * - Expandable employee cards with sports/availability
+ * - Edit buttons for shifts and employees
+ * - Referee/supervisor counts
+ */
 public class AdminDashboard {
     private Stage primaryStage;
     private String username;
@@ -32,6 +35,10 @@ public class AdminDashboard {
     private SchedulingController schedulingController;
     private VBox teamMembersContent;
     private VBox upcomingShiftsContent;
+    
+    // Track expanded state
+    private Set<Integer> expandedGames = new HashSet<>();
+    private Set<Integer> expandedEmployees = new HashSet<>();
 
     public AdminDashboard(Stage primaryStage, String username, int userId) {
         this.primaryStage = primaryStage;
@@ -234,8 +241,6 @@ public class AdminDashboard {
             LocalDate endDate = today.plusMonths(1);
             List<Schedule.Game> games = new GameScheduleDAO().getByDateRange(today, endDate);
             
-            System.out.println("Loaded " + games.size() + " games from database");
-            
             if (games.isEmpty()) {
                 Label emptyLabel = new Label("No upcoming shifts. Click '+ Create Shift' to add one.");
                 emptyLabel.setFont(Font.font("Arial", 14));
@@ -245,25 +250,57 @@ public class AdminDashboard {
             }
 
             for (Schedule.Game game : games) {
-                VBox gameCard = createGameCard(game);
+                VBox gameCard = createExpandableGameCard(game);
                 upcomingShiftsContent.getChildren().add(gameCard);
             }
         } catch (SQLException e) {
             System.err.println("Error loading shifts: " + e.getMessage());
             e.printStackTrace();
-            Label errorLabel = new Label("Error loading shifts: " + e.getMessage());
-            upcomingShiftsContent.getChildren().add(errorLabel);
         }
     }
 
-    private VBox createGameCard(Schedule.Game game) {
-        VBox card = new VBox(12);
-        card.setPadding(new Insets(15));
-        card.setStyle("-fx-background-color: #f9fafb; -fx-border-color: #e5e7eb; " +
+    /**
+     * NEW: Create expandable/collapsible game card
+     */
+    private VBox createExpandableGameCard(Schedule.Game game) {
+        VBox card = new VBox();
+        card.setStyle("-fx-background-color: white; -fx-border-color: #e5e7eb; " +
                 "-fx-border-radius: 8; -fx-background-radius: 8;");
 
-        HBox topRow = new HBox(15);
-        topRow.setAlignment(Pos.CENTER_LEFT);
+        // Header (always visible, clickable)
+        HBox header = createGameCardHeader(game);
+        header.setStyle("-fx-padding: 15; -fx-cursor: hand; -fx-background-radius: 8 8 0 0;");
+        header.setOnMouseClicked(e -> toggleGameExpansion(game.getScheduleId(), card));
+        
+        // Hover effect
+        header.setOnMouseEntered(e -> header.setStyle("-fx-padding: 15; -fx-cursor: hand; " +
+                "-fx-background-color: #f9fafb; -fx-background-radius: 8 8 0 0;"));
+        header.setOnMouseExited(e -> header.setStyle("-fx-padding: 15; -fx-cursor: hand; " +
+                "-fx-background-radius: 8 8 0 0;"));
+
+        card.getChildren().add(header);
+        
+        // Check if this game should be expanded
+        if (expandedGames.contains(game.getScheduleId())) {
+            VBox detailsBox = createGameDetails(game);
+            card.getChildren().add(detailsBox);
+        }
+
+        return card;
+    }
+    
+    /**
+     * NEW: Create game card header with expand/collapse indicator
+     */
+    private HBox createGameCardHeader(Schedule.Game game) {
+        HBox header = new HBox(15);
+        header.setAlignment(Pos.CENTER_LEFT);
+
+        // Expand/collapse indicator
+        Label expandIcon = new Label(expandedGames.contains(game.getScheduleId()) ? "▼" : "▶");
+        expandIcon.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+        expandIcon.setStyle("-fx-text-fill: #6b7280;");
+        expandIcon.setPrefWidth(20);
 
         // Get sport name
         String sportName = "Sport";
@@ -295,57 +332,209 @@ public class AdminDashboard {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        game.generateShifts();
-        int assigned = game.getAssignedStaffCount();
-        int total = game.getTotalStaffNeeded();
-        
-        Label staffLabel = new Label(assigned + "/" + total + " Staffed");
-        staffLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
-        staffLabel.setStyle(assigned == total ? "-fx-text-fill: #10b981;" : "-fx-text-fill: #f59e0b;");
-
-        Button genRecsBtn = new Button("Generate Recommendations");
-        genRecsBtn.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; " +
-                "-fx-background-radius: 4; -fx-padding: 4 12 4 12; -fx-font-size: 11px;");
-        genRecsBtn.setOnAction(e -> generateRecommendationsForGame(game));
-
-        topRow.getChildren().addAll(sportLabel, dateLabel, timeLabel, locationLabel, spacer, staffLabel, genRecsBtn);
-
-        // Show recommendations if they exist
-        VBox recommendationsBox = new VBox(8);
-        recommendationsBox.setPadding(new Insets(10, 0, 0, 0));
-        
+        // NEW: Show supervisor and referee counts
         try {
             ShiftDAO shiftDAO = new ShiftDAO();
             List<Schedule.Shift> shifts = shiftDAO.getByGameSchedule(game.getScheduleId());
-            boolean hasRecommendations = false;
+            
+            long assignedSupervisors = shifts.stream()
+                .filter(s -> s.getPositionType() == Schedule.PositionType.SUPERVISOR)
+                .filter(s -> s.getAssignedEmployeeId() != null)
+                .count();
+            
+            long assignedReferees = shifts.stream()
+                .filter(s -> s.getPositionType() == Schedule.PositionType.REFEREE)
+                .filter(s -> s.getAssignedEmployeeId() != null)
+                .count();
+            
+            Label supervisorCount = new Label("👔 " + assignedSupervisors + "/" + game.getRequiredSupervisors());
+            supervisorCount.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+            supervisorCount.setStyle(assignedSupervisors == game.getRequiredSupervisors() ? 
+                    "-fx-text-fill: #10b981;" : "-fx-text-fill: #f59e0b;");
+            
+            Label refereeCount = new Label("🏃 " + assignedReferees + "/" + game.getRequiredReferees());
+            refereeCount.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+            refereeCount.setStyle(assignedReferees == game.getRequiredReferees() ? 
+                    "-fx-text-fill: #10b981;" : "-fx-text-fill: #f59e0b;");
+            
+            header.getChildren().addAll(expandIcon, sportLabel, dateLabel, timeLabel, locationLabel, 
+                                       spacer, supervisorCount, refereeCount);
+        } catch (SQLException e) {
+            header.getChildren().addAll(expandIcon, sportLabel, dateLabel, timeLabel, locationLabel, spacer);
+        }
+
+        return header;
+    }
+    
+    /**
+     * NEW: Toggle game expansion
+     */
+    private void toggleGameExpansion(int gameId, VBox card) {
+        if (expandedGames.contains(gameId)) {
+            expandedGames.remove(gameId);
+        } else {
+            expandedGames.add(gameId);
+        }
+        refreshDashboard();
+    }
+    
+    /**
+     * NEW: Create detailed view for expanded game
+     */
+    private VBox createGameDetails(Schedule.Game game) {
+        VBox details = new VBox(15);
+        details.setPadding(new Insets(15));
+        details.setStyle("-fx-background-color: #f9fafb; -fx-border-width: 1 0 0 0; " +
+                "-fx-border-color: #e5e7eb;");
+
+        // Action buttons
+        HBox actionButtons = new HBox(10);
+        actionButtons.setAlignment(Pos.CENTER_LEFT);
+        
+        Button genRecsBtn = new Button("⚡ Generate Recommendations");
+        genRecsBtn.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; " +
+                "-fx-background-radius: 6; -fx-padding: 8 16; -fx-cursor: hand; -fx-font-weight: bold;");
+        genRecsBtn.setOnAction(e -> generateRecommendationsForGame(game));
+        
+        Button editBtn = new Button("✏️ Edit Shift");
+        editBtn.setStyle("-fx-background-color: #f59e0b; -fx-text-fill: white; " +
+                "-fx-background-radius: 6; -fx-padding: 8 16; -fx-cursor: hand; -fx-font-weight: bold;");
+        editBtn.setOnAction(e -> editGame(game));
+        
+        actionButtons.getChildren().addAll(genRecsBtn, editBtn);
+        details.getChildren().add(actionButtons);
+
+        // Show shifts with recommendations or assignments
+        try {
+            ShiftDAO shiftDAO = new ShiftDAO();
+            List<Schedule.Shift> shifts = shiftDAO.getByGameSchedule(game.getScheduleId());
+            
+            if (shifts.isEmpty()) {
+                Label noShifts = new Label("No shifts found for this game");
+                noShifts.setStyle("-fx-text-fill: #9ca3af;");
+                details.getChildren().add(noShifts);
+                return details;
+            }
+            
+            // Check if recommendations exist
+            boolean hasRecommendations = shifts.stream()
+                .anyMatch(s -> s.getRecommendationAId() != null);
+            
+            // Check if assignments exist
+            boolean hasAssignments = shifts.stream()
+                .anyMatch(s -> s.getAssignedEmployeeId() != null);
+            
+            if (hasAssignments) {
+                // Show final assignments
+                details.getChildren().add(createAssignmentsView(shifts));
+            } else if (hasRecommendations) {
+                // Show recommendations with radio buttons
+                details.getChildren().add(createRecommendationsView(game, shifts));
+            } else {
+                Label noRecs = new Label("Click 'Generate Recommendations' to get staffing suggestions");
+                noRecs.setFont(Font.font("Arial", 13));
+                noRecs.setStyle("-fx-text-fill: #6b7280;");
+                details.getChildren().add(noRecs);
+            }
+            
+        } catch (SQLException e) {
+            Label error = new Label("Error loading shift details");
+            error.setStyle("-fx-text-fill: #ef4444;");
+            details.getChildren().add(error);
+        }
+
+        return details;
+    }
+    
+    /**
+     * NEW: Show final assignments (after finalization)
+     */
+    private VBox createAssignmentsView(List<Schedule.Shift> shifts) {
+        VBox assignmentsBox = new VBox(12);
+        
+        Label title = new Label("✅ Finalized Assignments:");
+        title.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        title.setStyle("-fx-text-fill: #10b981;");
+        
+        assignmentsBox.getChildren().add(title);
+        
+        try {
+            EmployeeDAO empDAO = new EmployeeDAO();
             
             for (Schedule.Shift shift : shifts) {
-                if (shift.getRecommendationAId() != null) {
-                    hasRecommendations = true;
-                    HBox recRow = createRecommendationRow(shift);
-                    if (recRow != null) {
-                        recommendationsBox.getChildren().add(recRow);
+                if (shift.getAssignedEmployeeId() != null) {
+                    Employee emp = empDAO.getById(shift.getAssignedEmployeeId());
+                    if (emp != null) {
+                        HBox assignmentRow = new HBox(15);
+                        assignmentRow.setAlignment(Pos.CENTER_LEFT);
+                        assignmentRow.setPadding(new Insets(10));
+                        assignmentRow.setStyle("-fx-background-color: #d1fae5; -fx-background-radius: 6;");
+                        
+                        Label posLabel = new Label(shift.getPositionType() + " #" + shift.getPositionNumber());
+                        posLabel.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+                        posLabel.setPrefWidth(120);
+                        
+                        Label empLabel = new Label("→ " + emp.getFirstName() + " " + emp.getLastName());
+                        empLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+                        empLabel.setStyle("-fx-text-fill: #047857;");
+                        
+                        assignmentRow.getChildren().addAll(posLabel, empLabel);
+                        assignmentsBox.getChildren().add(assignmentRow);
                     }
                 }
             }
-            
-            if (hasRecommendations) {
-                Label recTitle = new Label("Recommended Assignments:");
-                recTitle.setFont(Font.font("Arial", FontWeight.BOLD, 12));
-                recTitle.setStyle("-fx-text-fill: #374151;");
-                recommendationsBox.getChildren().add(0, recTitle);
-                card.getChildren().addAll(topRow, new Separator(), recommendationsBox);
-            } else {
-                card.getChildren().add(topRow);
-            }
         } catch (SQLException e) {
-            card.getChildren().add(topRow);
+            e.printStackTrace();
         }
-
-        return card;
+        
+        return assignmentsBox;
     }
     
-    private HBox createRecommendationRow(Schedule.Shift shift) {
+    /**
+     * NEW: Show recommendations with radio buttons (before finalization)
+     */
+    private VBox createRecommendationsView(Schedule.Game game, List<Schedule.Shift> shifts) {
+        VBox recsBox = new VBox(12);
+        
+        Label title = new Label("📋 Recommended Assignments - Select to Assign:");
+        title.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+        title.setStyle("-fx-text-fill: #374151;");
+        
+        recsBox.getChildren().add(title);
+        
+        // Store toggle groups for assignment
+        Map<Schedule.Shift, ToggleGroup> shiftToggleGroups = new HashMap<>();
+        
+        for (Schedule.Shift shift : shifts) {
+            if (shift.getRecommendationAId() != null) {
+                VBox recRow = createRecommendationRowWithRadio(shift, shiftToggleGroups);
+                if (recRow != null) {
+                    recsBox.getChildren().add(recRow);
+                }
+            }
+        }
+        
+        // Finalize button
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        buttonBox.setPadding(new Insets(10, 0, 0, 0));
+        
+        Button finalizeBtn = new Button("✓ Finalize Assignments");
+        finalizeBtn.setStyle("-fx-background-color: #10b981; -fx-text-fill: white; " +
+                "-fx-background-radius: 6; -fx-padding: 8 16; -fx-cursor: hand; " +
+                "-fx-font-weight: bold; -fx-font-size: 12px;");
+        finalizeBtn.setOnAction(e -> finalizeAssignments(game, shifts, shiftToggleGroups));
+        
+        buttonBox.getChildren().add(finalizeBtn);
+        recsBox.getChildren().add(buttonBox);
+        
+        return recsBox;
+    }
+    
+    /**
+     * Create recommendation row with radio buttons
+     */
+    private VBox createRecommendationRowWithRadio(Schedule.Shift shift, Map<Schedule.Shift, ToggleGroup> toggleGroups) {
         try {
             EmployeeDAO empDAO = new EmployeeDAO();
             Employee optionA = empDAO.getById(shift.getRecommendationAId());
@@ -354,32 +543,121 @@ public class AdminDashboard {
             
             if (optionA == null) return null;
             
-            HBox row = new HBox(15);
-            row.setAlignment(Pos.CENTER_LEFT);
+            VBox container = new VBox(8);
+            container.setPadding(new Insets(8));
+            container.setStyle("-fx-background-color: white; -fx-border-color: #e5e7eb; " +
+                    "-fx-border-radius: 6; -fx-background-radius: 6;");
             
-            Label posLabel = new Label(shift.getPositionType() + " #" + shift.getPositionNumber() + ":");
-            posLabel.setFont(Font.font("Arial", FontWeight.BOLD, 11));
-            posLabel.setStyle("-fx-text-fill: #6b7280;");
-            posLabel.setPrefWidth(120);
+            // Position header
+            Label posLabel = new Label(shift.getPositionType() + " #" + shift.getPositionNumber());
+            posLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+            posLabel.setStyle("-fx-text-fill: #1f2937;");
             
-            Label optionALabel = new Label("Option A: " + optionA.getFirstName() + " " + optionA.getLastName());
-            optionALabel.setFont(Font.font("Arial", 11));
-            optionALabel.setStyle("-fx-background-color: #dbeafe; -fx-text-fill: #1e40af; " +
-                    "-fx-padding: 4 10 4 10; -fx-background-radius: 4;");
+            // Create toggle group
+            ToggleGroup toggleGroup = new ToggleGroup();
+            toggleGroups.put(shift, toggleGroup);
             
-            if (optionB != null && optionB.getEmployeeId() != optionA.getEmployeeId()) {
-                Label optionBLabel = new Label("Option B: " + optionB.getFirstName() + " " + optionB.getLastName());
-                optionBLabel.setFont(Font.font("Arial", 11));
-                optionBLabel.setStyle("-fx-background-color: #fef3c7; -fx-text-fill: #92400e; " +
-                        "-fx-padding: 4 10 4 10; -fx-background-radius: 4;");
-                row.getChildren().addAll(posLabel, optionALabel, optionBLabel);
-            } else {
-                row.getChildren().addAll(posLabel, optionALabel);
+            // Options container
+            VBox optionsContainer = new VBox(5);
+            optionsContainer.getChildren().add(createRadioOptionBox(optionA, "Option A", toggleGroup, true));
+            
+            if (optionB != null && optionB.getEmployeeId()!=(optionA.getEmployeeId())) {
+                optionsContainer.getChildren().add(createRadioOptionBox(optionB, "Option B", toggleGroup, false));
             }
             
-            return row;
+            container.getChildren().addAll(posLabel, optionsContainer);
+            return container;
+            
         } catch (SQLException e) {
+            e.printStackTrace();
             return null;
+        }
+    }
+    
+    /**
+     * Create radio button option box
+     */
+    private HBox createRadioOptionBox(Employee employee, String label, ToggleGroup group, boolean selected) {
+        HBox box = new HBox(12);
+        box.setAlignment(Pos.CENTER_LEFT);
+        box.setPadding(new Insets(8));
+        box.setStyle("-fx-background-color: " + (label.equals("Option A") ? "#dbeafe" : "#fef3c7") + "; " +
+                "-fx-background-radius: 4;");
+        
+        RadioButton radio = new RadioButton();
+        radio.setToggleGroup(group);
+        radio.setSelected(selected);
+        radio.setUserData(employee.getEmployeeId());
+        
+        VBox infoBox = new VBox(3);
+        Label nameLabel = new Label(label + ": " + employee.getFirstName() + " " + employee.getLastName());
+        nameLabel.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+        nameLabel.setStyle("-fx-text-fill: " + (label.equals("Option A") ? "#1e40af" : "#92400e"));
+        
+        Label detailsLabel = new Label(
+            (employee.isSupervisorEligible() ? "Supervisor • " : "Staff • ") +
+            employee.getMaxHoursPerWeek() + " hrs/week max"
+        );
+        detailsLabel.setFont(Font.font("Arial", 10));
+        detailsLabel.setStyle("-fx-text-fill: #6b7280;");
+        
+        infoBox.getChildren().addAll(nameLabel, detailsLabel);
+        
+        box.getChildren().addAll(radio, infoBox);
+        return box;
+    }
+    
+    /**
+     * Finalize assignments based on radio button selections
+     */
+    private void finalizeAssignments(Schedule.Game game, List<Schedule.Shift> shifts, 
+                                     Map<Schedule.Shift, ToggleGroup> toggleGroups) {
+        try {
+            int assignedCount = 0;
+            StringBuilder message = new StringBuilder("Assignments:\n\n");
+            
+            for (Schedule.Shift shift : shifts) {
+                ToggleGroup group = toggleGroups.get(shift);
+                if (group != null && group.getSelectedToggle() != null) {
+                    int employeeId = (int) group.getSelectedToggle().getUserData();
+                    
+                    // Assign the shift
+                    schedulingController.assignShift(shift, employeeId, game);
+                    
+                    // Get employee name for feedback
+                    EmployeeDAO empDAO = new EmployeeDAO();
+                    Employee emp = empDAO.getById(employeeId);
+                    message.append(shift.getPositionType()).append(" #").append(shift.getPositionNumber())
+                           .append(" → ").append(emp.getFirstName()).append(" ").append(emp.getLastName()).append("\n");
+                    
+                    assignedCount++;
+                }
+            }
+            
+            if (assignedCount > 0) {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Success");
+                alert.setHeaderText("Assignments Finalized!");
+                alert.setContentText(message.toString() + "\n" + assignedCount + " shifts assigned successfully.");
+                alert.showAndWait();
+                
+                refreshDashboard();
+            } else {
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                alert.setTitle("No Selections");
+                alert.setHeaderText(null);
+                alert.setContentText("Please select employees for the shifts before finalizing.");
+                alert.showAndWait();
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error finalizing assignments: " + e.getMessage());
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Error");
+            alert.setHeaderText(null);
+            alert.setContentText("Failed to finalize assignments: " + e.getMessage());
+            alert.showAndWait();
         }
     }
     
@@ -399,7 +677,8 @@ public class AdminDashboard {
             alert.setTitle("Success");
             alert.setHeaderText(null);
             alert.setContentText("Recommendations generated successfully!\n\n" +
-                    "Option A and Option B have been assigned to each position.");
+                    "Different employees recommended for each position.\n" +
+                    "Select your preferred option and click 'Finalize Assignments'.");
             alert.showAndWait();
             
             refreshDashboard();
@@ -412,6 +691,21 @@ public class AdminDashboard {
             alert.setContentText("Failed to generate recommendations: " + e.getMessage());
             alert.showAndWait();
         }
+    }
+    
+    /**
+     * NEW: Edit game details
+     */
+    private void editGame(Schedule.Game game) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Edit Shift");
+        alert.setHeaderText("Edit functionality coming soon");
+        alert.setContentText("This will allow you to modify:\n" +
+                "- Date and time\n" +
+                "- Location\n" +
+                "- Number of supervisors/referees");
+        alert.showAndWait();
+        // TODO: Implement edit dialog
     }
 
     private VBox createTeamMembersSection() {
@@ -431,7 +725,7 @@ public class AdminDashboard {
 
         Button addBtn = new Button("+ Add");
         addBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; " +
-                "-fx-background-radius: 6; -fx-padding: 6 16 6 16; -fx-cursor: hand; -fx-font-weight: bold;");
+                "-fx-background-radius: 6; -fx-padding: 6 16; -fx-cursor: hand; -fx-font-weight: bold;");
         addBtn.setOnAction(e -> {
             AddEmployeeModal modal = new AddEmployeeModal(primaryStage);
             modal.setOnSuccess(() -> Platform.runLater(() -> refreshTeamMembers()));
@@ -463,7 +757,7 @@ public class AdminDashboard {
             }
 
             for (Employee employee : employees) {
-                VBox card = createEmployeeCard(employee);
+                VBox card = createExpandableEmployeeCard(employee);
                 teamMembersContent.getChildren().add(card);
             }
         } catch (SQLException e) {
@@ -472,14 +766,47 @@ public class AdminDashboard {
         }
     }
 
-    private VBox createEmployeeCard(Employee employee) {
-        VBox card = new VBox(10);
-        card.setPadding(new Insets(15));
-        card.setStyle("-fx-background-color: #f9fafb; -fx-border-color: #e5e7eb; " +
+    /**
+     * NEW: Create expandable employee card
+     */
+    private VBox createExpandableEmployeeCard(Employee employee) {
+        VBox card = new VBox();
+        card.setStyle("-fx-background-color: white; -fx-border-color: #e5e7eb; " +
                 "-fx-border-radius: 8; -fx-background-radius: 8;");
 
-        HBox topRow = new HBox(12);
-        topRow.setAlignment(Pos.CENTER_LEFT);
+        // Header (always visible, clickable)
+        HBox header = createEmployeeCardHeader(employee);
+        header.setStyle("-fx-padding: 15; -fx-cursor: hand;");
+        header.setOnMouseClicked(e -> toggleEmployeeExpansion(employee.getEmployeeId(), card));
+        
+        // Hover effect
+        header.setOnMouseEntered(e -> header.setStyle("-fx-padding: 15; -fx-cursor: hand; " +
+                "-fx-background-color: #f9fafb;"));
+        header.setOnMouseExited(e -> header.setStyle("-fx-padding: 15; -fx-cursor: hand;"));
+
+        card.getChildren().add(header);
+        
+        // Check if expanded
+        if (expandedEmployees.contains(employee.getEmployeeId())) {
+            VBox details = createEmployeeDetails(employee);
+            card.getChildren().add(details);
+        }
+
+        return card;
+    }
+    
+    /**
+     * NEW: Create employee card header
+     */
+    private HBox createEmployeeCardHeader(Employee employee) {
+        HBox header = new HBox(12);
+        header.setAlignment(Pos.CENTER_LEFT);
+
+        // Expand indicator
+        Label expandIcon = new Label(expandedEmployees.contains(employee.getEmployeeId()) ? "▼" : "▶");
+        expandIcon.setFont(Font.font("Arial", FontWeight.BOLD, 10));
+        expandIcon.setStyle("-fx-text-fill: #6b7280;");
+        expandIcon.setPrefWidth(15);
 
         Label avatar = new Label(employee.getFirstName().substring(0, 1).toUpperCase());
         avatar.setFont(Font.font("Arial", FontWeight.BOLD, 16));
@@ -503,14 +830,130 @@ public class AdminDashboard {
         badge.setPadding(new Insets(3, 8, 3, 8));
         badge.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-background-radius: 10;");
 
-        topRow.getChildren().addAll(avatar, nameBox, spacer, badge);
+        header.getChildren().addAll(expandIcon, avatar, nameBox, spacer, badge);
+        return header;
+    }
+    
+    /**
+     * NEW: Toggle employee expansion
+     */
+    private void toggleEmployeeExpansion(int empId, VBox card) {
+        if (expandedEmployees.contains(empId)) {
+            expandedEmployees.remove(empId);
+        } else {
+            expandedEmployees.add(empId);
+        }
+        refreshTeamMembers();
+    }
+    
+    /**
+     * NEW: Create employee details view (sports and availability)
+     */
+    private VBox createEmployeeDetails(Employee employee) {
+        VBox details = new VBox(12);
+        details.setPadding(new Insets(15));
+        details.setStyle("-fx-background-color: #f9fafb; -fx-border-width: 1 0 0 0; -fx-border-color: #e5e7eb;");
 
+        // Hours info
         Label hoursLabel = new Label("Max: " + employee.getMaxHoursPerWeek() + " hrs/week");
-        hoursLabel.setFont(Font.font("Arial", 11));
+        hoursLabel.setFont(Font.font("Arial", 12));
         hoursLabel.setStyle("-fx-text-fill: #6b7280;");
+        details.getChildren().add(hoursLabel);
 
-        card.getChildren().addAll(topRow, hoursLabel);
-        return card;
+        // Sports section
+        try {
+            EmployeeExpertiseDAO expertiseDAO = new EmployeeExpertiseDAO();
+            SportDAO sportDAO = new SportDAO();
+            List<Integer> sportIds = expertiseDAO.getSportIdsByEmployee(employee.getEmployeeId());
+            
+            if (!sportIds.isEmpty()) {
+                Label sportsTitle = new Label("⚽ Sports:");
+                sportsTitle.setFont(Font.font("Arial", FontWeight.BOLD, 11));
+                sportsTitle.setStyle("-fx-text-fill: #374151;");
+                details.getChildren().add(sportsTitle);
+                
+                FlowPane sportsFlow = new FlowPane();
+                sportsFlow.setHgap(8);
+                sportsFlow.setVgap(8);
+                
+                for (Integer sportId : sportIds) {
+                    Sport sport = sportDAO.getById(sportId);
+                    if (sport != null) {
+                        Label sportBadge = new Label(sport.getSportName());
+                        sportBadge.setFont(Font.font("Arial", 10));
+                        sportBadge.setPadding(new Insets(4, 10, 4, 10));
+                        sportBadge.setStyle("-fx-background-color: #dbeafe; -fx-text-fill: #1e40af; " +
+                                "-fx-background-radius: 12;");
+                        sportsFlow.getChildren().add(sportBadge);
+                    }
+                }
+                details.getChildren().add(sportsFlow);
+            }
+            
+            // Availability section
+            AvailabilityDAO availDAO = new AvailabilityDAO();
+            List<Availability.Seasonal> avails = availDAO.getAllByEmployee(employee.getEmployeeId());
+            
+            if (!avails.isEmpty()) {
+                Label availTitle = new Label("📅 Availability:");
+                availTitle.setFont(Font.font("Arial", FontWeight.BOLD, 11));
+                availTitle.setStyle("-fx-text-fill: #374151;");
+                details.getChildren().add(availTitle);
+                
+                // Group by day
+                Map<DayOfWeek, List<Availability.Seasonal>> byDay = new HashMap<>();
+                for (Availability.Seasonal avail : avails) {
+                    byDay.computeIfAbsent(avail.getDayOfWeek(), k -> new ArrayList<>()).add(avail);
+                }
+                
+                VBox availList = new VBox(4);
+                for (DayOfWeek day : DayOfWeek.values()) {
+                    if (byDay.containsKey(day)) {
+                        Label dayLabel = new Label("• " + day.toString().substring(0, 3) + ": " +
+                                byDay.get(day).size() + " slot(s)");
+                        dayLabel.setFont(Font.font("Arial", 10));
+                        dayLabel.setStyle("-fx-text-fill: #6b7280;");
+                        availList.getChildren().add(dayLabel);
+                    }
+                }
+                details.getChildren().add(availList);
+            }
+            
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        // Edit button
+        HBox buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
+        buttonBox.setPadding(new Insets(8, 0, 0, 0));
+        
+        Button editBtn = new Button("✏️ Edit Employee");
+        editBtn.setStyle("-fx-background-color: #f59e0b; -fx-text-fill: white; " +
+                "-fx-background-radius: 4; -fx-padding: 6 12; -fx-cursor: hand; " +
+                "-fx-font-size: 11px; -fx-font-weight: bold;");
+        editBtn.setOnAction(e -> editEmployee(employee));
+        
+        buttonBox.getChildren().add(editBtn);
+        details.getChildren().add(buttonBox);
+
+        return details;
+    }
+    
+    /**
+     * NEW: Edit employee details
+     */
+    private void editEmployee(Employee employee) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Edit Employee");
+        alert.setHeaderText("Edit functionality coming soon");
+        alert.setContentText("This will allow you to modify:\n" +
+                "- Name and supervisor status\n" +
+                "- Sports expertise\n" +
+                "- Availability schedule\n" +
+                "- Maximum hours per week");
+        alert.showAndWait();
+        // TODO: Implement edit dialog
     }
 
     private void refreshTeamMembers() {
