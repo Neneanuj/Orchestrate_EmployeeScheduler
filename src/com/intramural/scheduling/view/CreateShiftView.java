@@ -22,6 +22,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * CreateShiftView - RESOLVED VERSION
+ * Combines: Date/time validation, past date blocking, location length validation, auto-trim
+ */
 public class CreateShiftView {
     private Stage dialogStage;
     private int adminUserId;
@@ -136,6 +140,19 @@ public class CreateShiftView {
         datePicker.setPrefWidth(400);
         datePicker.setPrefHeight(40);
         datePicker.setValue(LocalDate.now());
+
+        // RESOLVED: Block past dates with visual feedback
+        datePicker.setDayCellFactory(picker -> new DateCell() {
+            @Override
+            public void updateItem(LocalDate date, boolean empty) {
+                super.updateItem(date, empty);
+                setDisable(empty || date.isBefore(LocalDate.now()));
+                if (date.isBefore(LocalDate.now())) {
+                    setStyle("-fx-background-color: #fecaca; -fx-text-fill: #dc2626;");
+                }
+            }
+        });
+
         dateError = createErrorLabel();
 
         HBox timeBox = new HBox(20);
@@ -163,15 +180,17 @@ public class CreateShiftView {
 
         Label locationLabel = createLabel("Location*");
         locationField = new TextField();
-        locationField.setPromptText("e.g., Field A, Court 1");
+        locationField.setPromptText("e.g., Main Gym, Field A, Court 1");
         locationField.setPrefWidth(400);
         locationField.setPrefHeight(40);
-        // BUG-F018: Trim input automatically on focus lost
+        
+        // Auto-trim location on focus lost
         locationField.focusedProperty().addListener((obs, oldVal, newVal) -> {
             if (!newVal) {
                 locationField.setText(locationField.getText().trim());
             }
         });
+        
         locationError = createErrorLabel();
 
         section.getChildren().addAll(
@@ -203,7 +222,7 @@ public class CreateShiftView {
         
         VBox supervisorsBox = new VBox(10);
         Label supervisorsLabel = createLabel("Supervisors Needed");
-        // BUG-F011: Changed min from 0 to 1 - all shifts need at least 1 supervisor
+        // At least 1 supervisor required
         supervisorsSpinner = new Spinner<>(1, 5, 1);
         supervisorsSpinner.setPrefWidth(120);
         supervisorsSpinner.setPrefHeight(40);
@@ -273,14 +292,6 @@ public class CreateShiftView {
             int supervisors = supervisorsSpinner.getValue();
             int referees = refereesSpinner.getValue();
             
-            System.out.println("Creating shift:");
-            System.out.println("  Sport: " + sport.getSportName());
-            System.out.println("  Date: " + date);
-            System.out.println("  Time: " + startTime + " - " + endTime);
-            System.out.println("  Location: " + location);
-            System.out.println("  Supervisors: " + supervisors);
-            System.out.println("  Referees: " + referees);
-            
             // Create game schedule with cycle dates
             LocalDate cycleStart = date;
             LocalDate cycleEnd = date.plusDays(7);
@@ -300,15 +311,12 @@ public class CreateShiftView {
             
             // Insert game into database
             gameDAO.insert(game);
-            System.out.println("Game inserted with ID: " + game.getScheduleId());
             
             // Generate and insert shifts
             game.generateShifts();
-            System.out.println("Generated " + game.getShifts().size() + " shifts");
             
             for (Schedule.Shift shift : game.getShifts()) {
                 shiftDAO.insert(shift);
-                System.out.println("Shift inserted with ID: " + shift.getShiftId());
             }
             
             showSuccess("Shift created successfully!\n" + 
@@ -316,7 +324,6 @@ public class CreateShiftView {
             
             // Call success callback to refresh parent view
             if (onSuccess != null) {
-                System.out.println("Calling success callback...");
                 onSuccess.run();
             }
             
@@ -333,6 +340,9 @@ public class CreateShiftView {
         }
     }
     
+    /**
+     * RESOLVED: Comprehensive validation combining all features
+     */
     private boolean validate() {
         boolean valid = true;
         
@@ -344,14 +354,36 @@ public class CreateShiftView {
         if (datePicker.getValue() == null) {
             dateError.setText("Date is required");
             valid = false;
-        } else if (datePicker.getValue().isBefore(LocalDate.now())) {
-            // BUG-F001: Prevent scheduling shifts for past dates
-            dateError.setText("Cannot schedule shifts for past dates");
-            valid = false;
-        } else if (datePicker.getValue().isAfter(LocalDate.now().plusYears(1))) {
-            // BUG-F027: Prevent unrealistic future dates
-            dateError.setText("Cannot schedule shifts more than 1 year in advance");
-            valid = false;
+        } else {
+            LocalDate selectedDate = datePicker.getValue();
+            LocalDate today = LocalDate.now();
+            
+            // Check for past dates
+            if (selectedDate.isBefore(today)) {
+                dateError.setText("Cannot schedule shifts for past dates");
+                valid = false;
+            } 
+            // Check for unrealistic future dates
+            else if (selectedDate.isAfter(today.plusYears(1))) {
+                dateError.setText("Cannot schedule shifts more than 1 year in advance");
+                valid = false;
+            } 
+            // If today, also check time
+            else if (selectedDate.isEqual(today)) {
+                if (startTimeCombo.getValue() != null) {
+                    try {
+                        LocalTime selectedStart = parseTime(startTimeCombo.getValue());
+                        LocalTime now = LocalTime.now();
+                        
+                        if (selectedStart.isBefore(now)) {
+                            startTimeError.setText("Cannot create shifts for past times");
+                            valid = false;
+                        }
+                    } catch (Exception e) {
+                        // Time parsing will be checked below
+                    }
+                }
+            }
         }
         
         if (startTimeCombo.getValue() == null) {
@@ -365,12 +397,17 @@ public class CreateShiftView {
         }
         
         if (startTimeCombo.getValue() != null && endTimeCombo.getValue() != null) {
-            LocalTime start = parseTime(startTimeCombo.getValue());
-            LocalTime end = parseTime(endTimeCombo.getValue());
-            // BUG-F006: Check for equal times (0-duration shifts)
-            if (start.compareTo(end) >= 0) {
-                endTimeError.setText("End time must be after start time");
-                valid = false;
+            try {
+                LocalTime start = parseTime(startTimeCombo.getValue());
+                LocalTime end = parseTime(endTimeCombo.getValue());
+                
+                // Check for equal times (0-duration shifts)
+                if (start.compareTo(end) >= 0) {
+                    endTimeError.setText("End time must be after start time");
+                    valid = false;
+                }
+            } catch (Exception e) {
+                // Parsing error will be caught elsewhere
             }
         }
         
@@ -379,7 +416,6 @@ public class CreateShiftView {
             locationError.setText("Location is required");
             valid = false;
         } else if (location.length() > 100) {
-            // BUG-F016: Add maximum length validation
             locationError.setText("Location must be 100 characters or less");
             valid = false;
         }
@@ -395,18 +431,30 @@ public class CreateShiftView {
         locationError.setText("");
     }
     
+    /**
+     * RESOLVED: Parse time with uppercase conversion for case-insensitive parsing
+     */
     private LocalTime parseTime(String timeStr) {
         try {
-            timeStr = timeStr.trim().replaceAll("\\s+", " ");
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("h:mm a", Locale.US);
-            return LocalTime.parse(timeStr, formatter);
-        } catch (Exception e) {
+            // Convert to uppercase for case-insensitive parsing
+            timeStr = timeStr.trim().toUpperCase();
+            
+            // Try format: "8:00 PM" (with space)
             try {
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("h:mma", Locale.US);
-                return LocalTime.parse(timeStr.replaceAll("\\s+", ""), formatter);
-            } catch (Exception e2) {
-                throw new RuntimeException("Cannot parse time: " + timeStr, e);
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("h:mm a", Locale.US);
+                return LocalTime.parse(timeStr, formatter);
+            } catch (Exception e1) {
+                // Try format: "8:00PM" (no space)
+                try {
+                    timeStr = timeStr.replaceAll("\\s+", "");
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("h:mma", Locale.US);
+                    return LocalTime.parse(timeStr, formatter);
+                } catch (Exception e2) {
+                    throw new RuntimeException("Cannot parse time: " + timeStr, e2);
+                }
             }
+        } catch (Exception e) {
+            throw new RuntimeException("Cannot parse time: " + timeStr, e);
         }
     }
     

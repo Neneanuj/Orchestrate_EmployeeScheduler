@@ -19,8 +19,8 @@ import java.time.LocalTime;
 import java.util.*;
 
 /**
- * AddEmployeeModal - Called by AdminDashboard
- * Creates employees with availability and sport expertise
+ * AddEmployeeModal - RESOLVED VERSION
+ * Combines: Auto-trim, name validation, better placeholders
  */
 public class AddEmployeeModal {
     private Stage dialogStage;
@@ -122,9 +122,12 @@ public class AddEmployeeModal {
         sectionTitle.setFont(Font.font("Arial", FontWeight.BOLD, 18));
 
         HBox nameRow = new HBox(15);
-        firstNameField = createStyledTextField("John");
-        lastNameField = createStyledTextField("Doe");
-        // BUG-F018: Auto-trim name fields on focus lost
+        
+        // RESOLVED: Better placeholders + auto-trim
+        firstNameField = createStyledTextField("First name (letters only)");
+        lastNameField = createStyledTextField("Last name (letters only)");
+        
+        // Auto-trim name fields on focus lost
         firstNameField.focusedProperty().addListener((obs, oldVal, newVal) -> {
             if (!newVal) {
                 firstNameField.setText(firstNameField.getText().trim());
@@ -135,6 +138,7 @@ public class AddEmployeeModal {
                 lastNameField.setText(lastNameField.getText().trim());
             }
         });
+        
         HBox.setHgrow(firstNameField, Priority.ALWAYS);
         HBox.setHgrow(lastNameField, Priority.ALWAYS);
         nameRow.getChildren().addAll(firstNameField, lastNameField);
@@ -244,9 +248,9 @@ public class AddEmployeeModal {
         return row;
     }
     
-    private TextField createStyledTextField(String example) {
+    private TextField createStyledTextField(String placeholder) {
         TextField field = new TextField();
-        field.setPromptText(example);
+        field.setPromptText(placeholder);
         field.setStyle("-fx-font-size: 14px; -fx-pref-height: 40px; " +
                       "-fx-background-radius: 6; -fx-border-color: #e5e7eb; " +
                       "-fx-border-radius: 6;");
@@ -290,8 +294,6 @@ public class AddEmployeeModal {
         List<Integer> selectedSports = collectSports();
         
         try {
-            // CALLS: employeeService.createEmployee() 
-            // (matches EmployeeManagementService_FINAL)
             createdEmployee = employeeService.createEmployee(
                 firstNameField.getText().trim(),
                 lastNameField.getText().trim(),
@@ -314,6 +316,22 @@ public class AddEmployeeModal {
         }
     }
     
+    /**
+     * Validate name contains only letters, spaces, hyphens, apostrophes
+     * No numbers or special characters allowed
+     */
+    private boolean isValidName(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return false;
+        }
+        
+        // Check if name contains only letters, spaces, hyphens, and apostrophes
+        return name.matches("^[a-zA-Z\\s'-]+$");
+    }
+    
+    /**
+     * RESOLVED: Validate form with comprehensive validation
+     */
     private boolean validate() {
         String firstName = firstNameField.getText().trim();
         String lastName = lastNameField.getText().trim();
@@ -322,28 +340,34 @@ public class AddEmployeeModal {
             showError("First name is required");
             return false;
         }
-        // BUG-F003: Validate name contains only letters, spaces, hyphens, apostrophes
-        if (!firstName.matches("^[a-zA-Z\\s'-]+$")) {
+        
+        // Validate first name (no numbers or special characters)
+        if (!isValidName(firstName)) {
             showError("First name must contain only letters, spaces, hyphens, or apostrophes");
             return false;
         }
+        
         if (lastName.isEmpty()) {
             showError("Last name is required");
             return false;
         }
-        // BUG-F003: Validate name contains only letters
-        if (!lastName.matches("^[a-zA-Z\\s'-]+$")) {
+        
+        // Validate last name (no numbers or special characters)
+        if (!isValidName(lastName)) {
             showError("Last name must contain only letters, spaces, hyphens, or apostrophes");
             return false;
         }
+        
         if (!availabilityCheckboxes.values().stream().anyMatch(CheckBox::isSelected)) {
             showError("Select at least one availability day");
             return false;
         }
+        
         if (!sportCheckboxes.values().stream().anyMatch(CheckBox::isSelected)) {
             showError("Select at least one sport");
             return false;
         }
+        
         return true;
     }
     

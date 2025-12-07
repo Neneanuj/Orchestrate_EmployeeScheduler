@@ -1,10 +1,8 @@
 package com.intramural.scheduling.view;
 
 import com.intramural.scheduling.controller.SchedulingController;
-import com.intramural.scheduling.dao.GameScheduleDAO;
-import com.intramural.scheduling.dao.SportDAO;
-import com.intramural.scheduling.model.Schedule;
-import com.intramural.scheduling.model.Sport;
+import com.intramural.scheduling.dao.*;
+import com.intramural.scheduling.model.*;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -18,10 +16,15 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
+/**
+ * UPDATED ScheduleBuilder - Shows actual assignments and includes delete functionality
+ * - Removed "Generate Recommendations" buttons
+ * - Shows WHO is assigned to each position
+ * - Added "Delete Shift" functionality
+ * - Fixed stats to show real-time database values
+ */
 public class ScheduleBuilder {
     private Stage primaryStage;
     private String username;
@@ -149,22 +152,14 @@ public class ScheduleBuilder {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
+        // REMOVED: "Generate All Recommendations" button
         Button createBtn = new Button("+ Create Shift");
         createBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; " +
                 "-fx-background-radius: 6; -fx-padding: 12 24 12 24; -fx-cursor: hand; " +
                 "-fx-font-size: 14px; -fx-font-weight: bold;");
         createBtn.setOnAction(e -> openCreateShift());
 
-        Button generateBtn = new Button("⚡ Generate All Recommendations");
-        generateBtn.setStyle("-fx-background-color: #10b981; -fx-text-fill: white; " +
-                "-fx-background-radius: 6; -fx-padding: 12 24 12 24; -fx-cursor: hand; " +
-                "-fx-font-size: 14px; -fx-font-weight: bold;");
-        generateBtn.setOnAction(e -> generateAllRecommendations());
-
-        HBox buttonBox = new HBox(15);
-        buttonBox.getChildren().addAll(generateBtn, createBtn);
-
-        header.getChildren().addAll(titleBox, spacer, buttonBox);
+        header.getChildren().addAll(titleBox, spacer, createBtn);
         return header;
     }
 
@@ -172,23 +167,77 @@ public class ScheduleBuilder {
         HBox statsBox = new HBox(20);
         statsBox.setAlignment(Pos.CENTER);
 
-        Map<String, Integer> stats = schedulingController.getStatistics();
+        try {
+            // Load actual data from database for current month
+            GameScheduleDAO gameDAO = new GameScheduleDAO();
+            ShiftDAO shiftDAO = new ShiftDAO();
+            
+            LocalDate monthStart = currentMonth.withDayOfMonth(1);
+            LocalDate monthEnd = currentMonth.withDayOfMonth(currentMonth.lengthOfMonth());
+            
+            List<Schedule.Game> games = gameDAO.getByDateRange(monthStart, monthEnd);
+            
+            // Calculate real-time stats
+            int totalShifts = 0;
+            int fullyStaffed = 0;
+            int partiallyStaffed = 0;
+            int unstaffed = 0;
+            
+            for (Schedule.Game game : games) {
+                // Load actual shifts from database
+                List<Schedule.Shift> shifts = shiftDAO.getByGameSchedule(game.getScheduleId());
+                
+                if (!shifts.isEmpty()) {
+                    // Count assigned vs total positions
+                    long assignedCount = shifts.stream()
+                        .filter(s -> s.getAssignedEmployeeId() != null)
+                        .count();
+                    
+                    int totalPositions = shifts.size();
+                    
+                    totalShifts++;
+                    
+                    if (assignedCount == totalPositions && totalPositions > 0) {
+                        fullyStaffed++;
+                    } else if (assignedCount > 0) {
+                        partiallyStaffed++;
+                    } else {
+                        unstaffed++;
+                    }
+                }
+            }
+            
+            int needsStaff = partiallyStaffed + unstaffed;
+            
+            VBox card1 = createSmallStatCard("📅", "#dbeafe", "Total Shifts", 
+                                            String.valueOf(totalShifts));
+            VBox card2 = createSmallStatCard("✅", "#d1fae5", "Fully Staffed", 
+                                            String.valueOf(fullyStaffed));
+            VBox card3 = createSmallStatCard("⚠️", "#fef3c7", "Needs Staff", 
+                                            String.valueOf(needsStaff));
+            VBox card4 = createSmallStatCard("❌", "#fee2e2", "Unassigned", 
+                                            String.valueOf(unstaffed));
+
+            HBox.setHgrow(card1, Priority.ALWAYS);
+            HBox.setHgrow(card2, Priority.ALWAYS);
+            HBox.setHgrow(card3, Priority.ALWAYS);
+            HBox.setHgrow(card4, Priority.ALWAYS);
+
+            statsBox.getChildren().addAll(card1, card2, card3, card4);
+            
+        } catch (SQLException e) {
+            System.err.println("Error loading stats: " + e.getMessage());
+            e.printStackTrace();
+            
+            // Fallback to zeros on error
+            VBox card1 = createSmallStatCard("📅", "#dbeafe", "Total Shifts", "0");
+            VBox card2 = createSmallStatCard("✅", "#d1fae5", "Fully Staffed", "0");
+            VBox card3 = createSmallStatCard("⚠️", "#fef3c7", "Needs Staff", "0");
+            VBox card4 = createSmallStatCard("❌", "#fee2e2", "Unassigned", "0");
+            
+            statsBox.getChildren().addAll(card1, card2, card3, card4);
+        }
         
-        VBox card1 = createSmallStatCard("📅", "#dbeafe", "Total Shifts", 
-                String.valueOf(stats.getOrDefault("total", 0)));
-        VBox card2 = createSmallStatCard("✅", "#d1fae5", "Fully Staffed", 
-                String.valueOf(stats.getOrDefault("fullyStaffed", 0)));
-        VBox card3 = createSmallStatCard("⚠️", "#fef3c7", "Needs Staff", 
-                String.valueOf(stats.getOrDefault("partiallyStaffed", 0) + stats.getOrDefault("unstaffed", 0)));
-        VBox card4 = createSmallStatCard("❌", "#fee2e2", "Unassigned", 
-                String.valueOf(stats.getOrDefault("unstaffed", 0)));
-
-        HBox.setHgrow(card1, Priority.ALWAYS);
-        HBox.setHgrow(card2, Priority.ALWAYS);
-        HBox.setHgrow(card3, Priority.ALWAYS);
-        HBox.setHgrow(card4, Priority.ALWAYS);
-
-        statsBox.getChildren().addAll(card1, card2, card3, card4);
         return statsBox;
     }
 
@@ -289,6 +338,9 @@ public class ScheduleBuilder {
         }
     }
 
+    /**
+     * UPDATED: Now shows actual assignments from database
+     */
     private VBox createDetailedGameCard(Schedule.Game game) {
         VBox card = new VBox(15);
         card.setPadding(new Insets(20));
@@ -329,26 +381,40 @@ public class ScheduleBuilder {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        game.generateShifts();
-        int assigned = game.getAssignedStaffCount();
-        int total = game.getTotalStaffNeeded();
+        // Load actual shifts from database to get accurate counts
+        int assigned = 0;
+        int total = 0;
+        try {
+            ShiftDAO shiftDAO = new ShiftDAO();
+            List<Schedule.Shift> shifts = shiftDAO.getByGameSchedule(game.getScheduleId());
+            total = shifts.size();
+            assigned = (int) shifts.stream()
+                .filter(s -> s.getAssignedEmployeeId() != null)
+                .count();
+        } catch (SQLException e) {
+            System.err.println("Error loading shifts: " + e.getMessage());
+        }
         
         Label staffLabel = new Label(assigned + "/" + total + " Positions Filled");
         staffLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
-        staffLabel.setStyle(assigned == total ? "-fx-text-fill: #10b981;" : "-fx-text-fill: #f59e0b;");
+        staffLabel.setStyle(assigned == total && total > 0 ? "-fx-text-fill: #10b981;" : "-fx-text-fill: #f59e0b;");
 
-        Button genRecsBtn = new Button("Generate Recommendations");
-        genRecsBtn.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; " +
+        // CHANGED: "Delete Shift" button instead of "Generate Recommendations"
+        Button deleteBtn = new Button("🗑️ Delete Shift");
+        deleteBtn.setStyle("-fx-background-color: #ef4444; -fx-text-fill: white; " +
                 "-fx-background-radius: 6; -fx-padding: 8 16 8 16; -fx-cursor: hand; -fx-font-weight: bold;");
-        genRecsBtn.setOnAction(e -> generateRecommendationsForGame(game));
+        deleteBtn.setOnAction(e -> deleteShift(game));
 
-        topRow.getChildren().addAll(sportLabel, dateLabel, timeLabel, locationLabel, spacer, staffLabel, genRecsBtn);
+        topRow.getChildren().addAll(sportLabel, dateLabel, timeLabel, locationLabel, spacer, staffLabel, deleteBtn);
 
+        // NEW: Show actual assignments
+        VBox assignmentsSection = createAssignmentsSection(game);
+        
         // Shifts breakdown
         HBox shiftsRow = new HBox(30);
         shiftsRow.setPadding(new Insets(10, 0, 0, 0));
         
-        Label supervisorsLabel = new Label("👔 Supervisors: " + game.getRequiredSupervisors());
+        Label supervisorsLabel = new Label("🏆 Supervisors: " + game.getRequiredSupervisors());
         supervisorsLabel.setFont(Font.font("Arial", 13));
         
         Label refereesLabel = new Label("🏃 Referees: " + game.getRequiredReferees());
@@ -356,61 +422,158 @@ public class ScheduleBuilder {
         
         shiftsRow.getChildren().addAll(supervisorsLabel, refereesLabel);
 
-        card.getChildren().addAll(topRow, new Separator(), shiftsRow);
+        card.getChildren().addAll(topRow, new Separator(), shiftsRow, assignmentsSection);
         return card;
     }
 
-    private void generateRecommendationsForGame(Schedule.Game game) {
+    /**
+     * NEW: Create assignments section showing WHO is assigned to each position
+     */
+    private VBox createAssignmentsSection(Schedule.Game game) {
+        VBox section = new VBox(10);
+        section.setPadding(new Insets(10, 0, 0, 0));
+        
         try {
-            // Set up cycle if needed
-            if (schedulingController.getCurrentCycle() == null) {
-                schedulingController.createCycle(game.getScheduleCycleStart(), game.getScheduleCycleEnd());
+            ShiftDAO shiftDAO = new ShiftDAO();
+            EmployeeDAO empDAO = new EmployeeDAO();
+            List<Schedule.Shift> shifts = shiftDAO.getByGameSchedule(game.getScheduleId());
+            
+            if (shifts.isEmpty()) {
+                Label noShifts = new Label("No positions created for this game");
+                noShifts.setFont(Font.font("Arial", 12));
+                noShifts.setStyle("-fx-text-fill: #9ca3af;");
+                section.getChildren().add(noShifts);
+                return section;
             }
             
-            // Add game to cycle if not already there
-            if (!schedulingController.getCurrentCycle().getGameSchedules().contains(game)) {
-                schedulingController.getCurrentCycle().addGameSchedule(game);
+            // Check if any assignments exist
+            boolean hasAssignments = shifts.stream()
+                .anyMatch(s -> s.getAssignedEmployeeId() != null);
+            
+            if (!hasAssignments) {
+                Label noAssignments = new Label("💡 No staff assigned yet. Assign staff in Admin Dashboard.");
+                noAssignments.setFont(Font.font("Arial", 12));
+                noAssignments.setStyle("-fx-text-fill: #6b7280; -fx-font-style: italic;");
+                section.getChildren().add(noAssignments);
+                return section;
             }
             
-            schedulingController.autoGenerateRecommendations(game);
+            // Show assignments
+            Label assignmentsTitle = new Label("📋 Assigned Staff:");
+            assignmentsTitle.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+            assignmentsTitle.setStyle("-fx-text-fill: #374151;");
+            section.getChildren().add(assignmentsTitle);
             
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Success");
-            alert.setHeaderText(null);
-            alert.setContentText("Recommendations generated successfully!");
-            alert.showAndWait();
+            VBox assignmentsList = new VBox(8);
             
-            refreshSchedule();
-        } catch (Exception e) {
-            System.err.println("Error generating recommendations: " + e.getMessage());
+            for (Schedule.Shift shift : shifts) {
+                if (shift.getAssignedEmployeeId() != null) {
+                    Employee emp = empDAO.getById(shift.getAssignedEmployeeId());
+                    if (emp != null) {
+                        HBox assignmentRow = createAssignmentRow(shift, emp);
+                        assignmentsList.getChildren().add(assignmentRow);
+                    }
+                }
+            }
+            
+            section.getChildren().add(assignmentsList);
+            
+        } catch (SQLException e) {
             e.printStackTrace();
-            Alert alert = new Alert(Alert.AlertType.WARNING);
-            alert.setTitle("Recommendations Generated");
-            alert.setHeaderText(null);
-            alert.setContentText("Recommendations generated, but some features may be limited until employee availability is configured.");
-            alert.showAndWait();
+            Label error = new Label("Error loading assignments");
+            error.setStyle("-fx-text-fill: #ef4444;");
+            section.getChildren().add(error);
         }
+        
+        return section;
     }
 
-    private void generateAllRecommendations() {
-        try {
-            schedulingController.generateRecommendations();
-            
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Success");
-            alert.setHeaderText(null);
-            alert.setContentText("Recommendations generated for all shifts!");
-            alert.showAndWait();
-            
-            refreshSchedule();
-        } catch (Exception e) {
-            System.err.println("Error generating recommendations: " + e.getMessage());
-            e.printStackTrace();
-            Alert alert = new Alert(Alert.AlertType.WARNING);
-            alert.setTitle("Recommendations Generated");
-            alert.setHeaderText(null);
-            alert.setContentText("Recommendations generated, but some features may be limited until employee availability is configured.");
-            alert.showAndWait();
+    /**
+     * NEW: Create assignment row showing position and assigned employee
+     */
+    private HBox createAssignmentRow(Schedule.Shift shift, Employee employee) {
+        HBox row = new HBox(15);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(8, 12, 8, 12));
+        row.setStyle("-fx-background-color: #d1fae5; -fx-background-radius: 6;");
+        
+        // Position label
+        Label posLabel = new Label(shift.getPositionType() + " #" + shift.getPositionNumber());
+        posLabel.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+        posLabel.setStyle("-fx-text-fill: #065f46;");
+        posLabel.setPrefWidth(120);
+        
+        // Arrow
+        Label arrow = new Label("→");
+        arrow.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        arrow.setStyle("-fx-text-fill: #047857;");
+        
+        // Employee name
+        Label empLabel = new Label(employee.getFirstName() + " " + employee.getLastName());
+        empLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+        empLabel.setStyle("-fx-text-fill: #047857;");
+        
+//        // Role badge
+//        Label roleBadge = new Label(employee.isSupervisorEligible() ? "Supervisor" : "Staff");
+//        roleBadge.setFont(Font.font("Arial", FontWeight.BOLD, 10));
+//        roleBadge.setPadding(new Insets(3, 8, 3, 8));
+//        roleBadge.setStyle("-fx-background-color: #059669; -fx-text-fill: white; -fx-background-radius: 10;");
+//        
+        row.getChildren().addAll(posLabel, arrow, empLabel);
+        return row;
+    }
+
+    /**
+     * NEW: Delete shift functionality
+     */
+    private void deleteShift(Schedule.Game game) {
+        // Confirmation dialog
+        Alert confirmation = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmation.setTitle("Delete Shift");
+        confirmation.setHeaderText("Are you sure you want to delete this shift?");
+        confirmation.setContentText(
+            "Game: " + game.getLocation() + "\n" +
+            "Date: " + game.getGameDate() + "\n" +
+            "Time: " + game.getStartTime() + " - " + game.getEndTime() + "\n\n" +
+            "This will delete all positions and cannot be undone."
+        );
+        
+        ButtonType deleteButton = new ButtonType("Delete", ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancelButton = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+        confirmation.getButtonTypes().setAll(deleteButton, cancelButton);
+        
+        Optional<ButtonType> result = confirmation.showAndWait();
+        
+        if (result.isPresent() && result.get() == deleteButton) {
+            try {
+                // Delete shifts first (foreign key constraint)
+                ShiftDAO shiftDAO = new ShiftDAO();
+                shiftDAO.deleteByGameSchedule(game.getScheduleId());
+                
+                // Delete game schedule
+                GameScheduleDAO gameDAO = new GameScheduleDAO();
+                gameDAO.delete(game.getScheduleId());
+                
+                // Show success
+                Alert success = new Alert(Alert.AlertType.INFORMATION);
+                success.setTitle("Success");
+                success.setHeaderText(null);
+                success.setContentText("✅ Shift deleted successfully!");
+                success.showAndWait();
+                
+                // Refresh the schedule
+                refreshSchedule();
+                
+            } catch (SQLException e) {
+                System.err.println("Error deleting shift: " + e.getMessage());
+                e.printStackTrace();
+                
+                Alert error = new Alert(Alert.AlertType.ERROR);
+                error.setTitle("Error");
+                error.setHeaderText("Failed to delete shift");
+                error.setContentText("Error: " + e.getMessage());
+                error.showAndWait();
+            }
         }
     }
 
