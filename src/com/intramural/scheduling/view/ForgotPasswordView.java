@@ -217,7 +217,12 @@ public class ForgotPasswordView {
         Scene scene = new Scene(mainLayout, 800, 600);
         
         // Make responsive
-        scene.widthProperty().addListener((obs, oldVal, newVal) -> {\n            container.setMaxWidth(Math.min(500, newVal.doubleValue() * 0.9));\n        });\n        \n        return scene;\n    }
+        scene.widthProperty().addListener((obs, oldVal, newVal) -> {
+            container.setMaxWidth(Math.min(500, newVal.doubleValue() * 0.9));
+        });
+        
+        return scene;
+    }
     
     private boolean isValidEmail(String email) {
         return email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
