@@ -84,6 +84,15 @@ public class CreateEmployeeView {
 
         scrollPane.setContent(root);
         Scene scene = new Scene(scrollPane, 800, 900);
+        
+        // Make responsive
+        scene.widthProperty().addListener((obs, oldVal, newVal) -> {
+            root.setPrefWidth(Math.min(750, newVal.doubleValue() * 0.9));
+        });
+        scene.heightProperty().addListener((obs, oldVal, newVal) -> {
+            scrollPane.setPrefHeight(newVal.doubleValue());
+        });
+        
         dialogStage.setScene(scene);
         dialogStage.showAndWait();
     }
@@ -114,6 +123,21 @@ public class CreateEmployeeView {
         HBox nameRow = new HBox(15);
         firstNameField = createStyledTextField("First Name*", "John");
         lastNameField = createStyledTextField("Last Name*", "Doe");
+        
+        // Restrict numeric input for first name
+        firstNameField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && !newVal.matches("[a-zA-Z\\s]*")) {
+                firstNameField.setText(oldVal);
+            }
+        });
+        
+        // Restrict numeric input for last name
+        lastNameField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && !newVal.matches("[a-zA-Z\\s]*")) {
+                lastNameField.setText(oldVal);
+            }
+        });
+        
         HBox.setHgrow(firstNameField, Priority.ALWAYS);
         HBox.setHgrow(lastNameField, Priority.ALWAYS);
         nameRow.getChildren().addAll(firstNameField, lastNameField);
@@ -292,12 +316,23 @@ public class CreateEmployeeView {
     }
     
     private boolean validate() {
-        if (firstNameField.getText().trim().isEmpty()) {
+        String firstName = firstNameField.getText().trim();
+        String lastName = lastNameField.getText().trim();
+        
+        if (firstName.isEmpty()) {
             showError("First name is required");
             return false;
         }
-        if (lastNameField.getText().trim().isEmpty()) {
+        if (!firstName.matches("[a-zA-Z\\s]+")) {
+            showError("First name must contain only letters and spaces");
+            return false;
+        }
+        if (lastName.isEmpty()) {
             showError("Last name is required");
+            return false;
+        }
+        if (!lastName.matches("[a-zA-Z\\s]+")) {
+            showError("Last name must contain only letters and spaces");
             return false;
         }
         if (!availabilityCheckboxes.values().stream().anyMatch(CheckBox::isSelected)) {

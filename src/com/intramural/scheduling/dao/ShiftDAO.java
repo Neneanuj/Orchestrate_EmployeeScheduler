@@ -207,6 +207,46 @@ public class ShiftDAO {
     }
     
     /**
+     * Get shifts assigned to a specific employee
+     */
+    public List<Schedule.Game> getShiftsByEmployee(int employeeId) throws SQLException {
+        List<Schedule.Game> games = new ArrayList<>();
+        String sql = "SELECT gs.*, s.*, sp.sport_name " +
+                    "FROM game_schedules gs " +
+                    "JOIN shifts s ON gs.schedule_id = s.game_schedule_id " +
+                    "JOIN sports sp ON gs.sport_id = sp.sport_id " +
+                    "WHERE s.assigned_employee_id = ? " +
+                    "ORDER BY gs.game_date, gs.start_time";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setInt(1, employeeId);
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Schedule.Game game = new Schedule.Game(
+                        rs.getInt("sport_id"),
+                        rs.getDate("game_date").toLocalDate(),
+                        rs.getTime("start_time").toLocalTime(),
+                        rs.getTime("end_time").toLocalTime(),
+                        rs.getString("location"),
+                        rs.getInt("required_supervisors"),
+                        rs.getInt("required_referees"),
+                        rs.getDate("schedule_cycle_start").toLocalDate(),
+                        rs.getDate("schedule_cycle_end").toLocalDate(),
+                        rs.getInt("created_by")
+                    );
+                    game.setScheduleId(rs.getInt("schedule_id"));
+                    games.add(game);
+                }
+            }
+        }
+        
+        return games;
+    }
+    
+    /**
      * Extract Shift from ResultSet
      */
     private Schedule.Shift extractShiftFromResultSet(ResultSet rs) throws SQLException {

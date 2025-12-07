@@ -56,8 +56,20 @@ public class AdminDashboard {
         BorderPane root = new BorderPane();
         root.setStyle("-fx-background-color: #f8f9fa;");
         root.setTop(createTopBar());
-        root.setCenter(createMainContent());
-        return new Scene(root, 1400, 900);
+        ScrollPane mainContent = createMainContent();
+        root.setCenter(mainContent);
+        
+        Scene scene = new Scene(root, 1400, 900);
+        
+        // Make responsive
+        scene.widthProperty().addListener((obs, oldVal, newVal) -> {
+            mainContent.setPrefWidth(newVal.doubleValue());
+        });
+        scene.heightProperty().addListener((obs, oldVal, newVal) -> {
+            mainContent.setPrefHeight(newVal.doubleValue() - 80);
+        });
+        
+        return scene;
     }
 
     private HBox createTopBar() {
@@ -85,8 +97,10 @@ public class AdminDashboard {
         scheduleBtn.setOnAction(e -> openScheduleView());
         Button employeesBtn = createNavButton("👥 Employees", false);
         employeesBtn.setOnAction(e -> openEmployeesView());
+        Button usersBtn = createNavButton("👤 Users", false);
+        usersBtn.setOnAction(e -> openUsersView());
         
-        navButtons.getChildren().addAll(dashboardBtn, scheduleBtn, employeesBtn);
+        navButtons.getChildren().addAll(dashboardBtn, scheduleBtn, employeesBtn, usersBtn);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -96,7 +110,12 @@ public class AdminDashboard {
         refreshBtn.setOnAction(e -> refreshDashboard());
         refreshBtn.setTooltip(new Tooltip("Refresh Dashboard"));
 
-        topBar.getChildren().addAll(logo, titleBox, navButtons, spacer, refreshBtn);
+        Button logoutBtn = new Button("Logout");
+        logoutBtn.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; " +
+                "-fx-font-size: 14px; -fx-padding: 8 20 8 20; -fx-cursor: hand; -fx-background-radius: 5;");
+        logoutBtn.setOnAction(e -> logout());
+
+        topBar.getChildren().addAll(logo, titleBox, navButtons, spacer, refreshBtn, logoutBtn);
         return topBar;
     }
 
@@ -984,5 +1003,17 @@ public class AdminDashboard {
         EmployeesPage employeesView = new EmployeesPage(primaryStage, username, userId);
         Scene scene = employeesView.createScene();
         primaryStage.setScene(scene);
+    }
+
+    private void openUsersView() {
+        UserManagementView usersView = new UserManagementView(primaryStage, username, userId);
+        Scene scene = usersView.createScene();
+        primaryStage.setScene(scene);
+    }
+
+    private void logout() {
+        LoginView loginView = new LoginView(primaryStage);
+        primaryStage.setScene(loginView.createScene());
+        primaryStage.setTitle("Employee Scheduling System - Login");
     }
 }

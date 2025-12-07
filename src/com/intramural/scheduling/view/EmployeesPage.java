@@ -45,8 +45,20 @@ public class EmployeesPage {
         BorderPane root = new BorderPane();
         root.setStyle("-fx-background-color: #f8f9fa;");
         root.setTop(createTopBar());
-        root.setCenter(createMainContent());
-        return new Scene(root, 1400, 900);
+        ScrollPane mainContent = createMainContent();
+        root.setCenter(mainContent);
+        
+        Scene scene = new Scene(root, 1400, 900);
+        
+        // Make responsive
+        scene.widthProperty().addListener((obs, oldVal, newVal) -> {
+            mainContent.setPrefWidth(newVal.doubleValue());
+        });
+        scene.heightProperty().addListener((obs, oldVal, newVal) -> {
+            mainContent.setPrefHeight(newVal.doubleValue() - 80);
+        });
+        
+        return scene;
     }
 
     private HBox createTopBar() {
@@ -458,7 +470,7 @@ public class EmployeesPage {
             details.getChildren().add(errorLabel);
         }
 
-        // Edit button
+        // Edit and Delete buttons
         HBox buttonBox = new HBox(10);
         buttonBox.setAlignment(Pos.CENTER_RIGHT);
         buttonBox.setPadding(new Insets(10, 0, 0, 0));
@@ -469,24 +481,121 @@ public class EmployeesPage {
                 "-fx-font-size: 12px; -fx-font-weight: bold;");
         editBtn.setOnAction(e -> editEmployee(employee));
         
-        buttonBox.getChildren().add(editBtn);
+        Button deleteBtn = new Button("🗑️ Delete");
+        deleteBtn.setStyle("-fx-background-color: #ef4444; -fx-text-fill: white; " +
+                "-fx-background-radius: 6; -fx-padding: 8 16; -fx-cursor: hand; " +
+                "-fx-font-size: 12px; -fx-font-weight: bold;");
+        deleteBtn.setOnAction(e -> deleteEmployee(employee));
+        
+        buttonBox.getChildren().addAll(editBtn, deleteBtn);
         details.getChildren().add(buttonBox);
 
         return details;
     }
     
     /**
-     * Edit employee details (placeholder)
+     * Edit employee details
      */
     private void editEmployee(Employee employee) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Edit Employee");
-        alert.setHeaderText("Edit functionality coming soon");
-        alert.setContentText("This will allow you to modify:\n" +
-                "- Name and supervisor status\n" +
-                "- Sports expertise\n" +
-                "- Availability schedule\n" +
-                "- Maximum hours per week");
-        alert.showAndWait();
+        Dialog<Employee> dialog = new Dialog<>();
+        dialog.setTitle("Edit Employee");
+        dialog.setHeaderText("Edit " + employee.getFirstName() + " " + employee.getLastName());
+
+        ButtonType saveButtonType = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, ButtonType.CANCEL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        TextField firstNameField = new TextField(employee.getFirstName());
+        TextField lastNameField = new TextField(employee.getLastName());
+        TextField maxHoursField = new TextField(String.valueOf(employee.getMaxHoursPerWeek()));
+        CheckBox supervisorCheckBox = new CheckBox();
+        supervisorCheckBox.setSelected(employee.isSupervisorEligible());
+        CheckBox activeCheckBox = new CheckBox();
+        activeCheckBox.setSelected(employee.isActiveStatus());
+
+        grid.add(new Label("First Name:"), 0, 0);
+        grid.add(firstNameField, 1, 0);
+        grid.add(new Label("Last Name:"), 0, 1);
+        grid.add(lastNameField, 1, 1);
+        grid.add(new Label("Max Hours/Week:"), 0, 2);
+        grid.add(maxHoursField, 1, 2);
+        grid.add(new Label("Supervisor Eligible:"), 0, 3);
+        grid.add(supervisorCheckBox, 1, 3);
+        grid.add(new Label("Active:"), 0, 4);
+        grid.add(activeCheckBox, 1, 4);
+
+        dialog.getDialogPane().setContent(grid);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == saveButtonType) {
+                try {
+                    employee.setFirstName(firstNameField.getText());
+                    employee.setLastName(lastNameField.getText());
+                    employee.setMaxHoursPerWeek(Integer.parseInt(maxHoursField.getText()));
+                    employee.setSupervisorEligible(supervisorCheckBox.isSelected());
+                    employee.setActiveStatus(activeCheckBox.isSelected());
+                    
+                    employeeDAO.updateEmployee(employee);
+                    refreshEmployeeList();
+                    
+                    Alert success = new Alert(Alert.AlertType.INFORMATION);
+                    success.setTitle("Success");
+                    success.setHeaderText("Employee Updated");
+                    success.setContentText("Employee information has been updated successfully.");
+                    success.showAndWait();
+                } catch (Exception e) {
+                    Alert error = new Alert(Alert.AlertType.ERROR);
+                    error.setTitle("Error");
+                    error.setHeaderText("Failed to update employee");
+                    error.setContentText(e.getMessage());
+                    error.showAndWait();
+                }
+            }
+            return null;
+        });
+
+        dialog.showAndWait();
+    }
+    
+    /**
+     * Delete employee
+     */
+    private void deleteEmployee(Employee employee) {
+        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmAlert.setTitle("Deactivate Employee");
+        confirmAlert.setHeaderText("Deactivate " + employee.getFirstName() + " " + employee.getLastName() + "?");
+        confirmAlert.setContentText("This will mark the employee as inactive. They will no longer appear in active employee lists.");
+        
+        confirmAlert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                try {
+                    employeeDAO.deleteEmployee(employee.getEmployeeId());
+                    refreshEmployeeList();
+                    
+                    Alert success = new Alert(Alert.AlertType.INFORMATION);
+                    success.setTitle("Success");
+                    success.setHeaderText("Employee Deactivated");
+                    success.setContentText("Employee has been deactivated successfully.");
+                    success.showAndWait();
+                } catch (Exception e) {
+                    Alert error = new Alert(Alert.AlertType.ERROR);
+                    error.setTitle("Error");
+                    error.setHeaderText("Failed to deactivate employee");
+                    error.setContentText(e.getMessage());
+                    error.showAndWait();
+                }
+            }
+        });
+    }
+    
+    /**
+     * Refresh the employee list
+     */
+    private void refreshEmployeeList() {
+        primaryStage.setScene(createScene());
     }
 }

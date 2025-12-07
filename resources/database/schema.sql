@@ -1,13 +1,13 @@
 USE [master]
 GO
-/****** Object:  Database [SchedulingSystem]    Script Date: 25-11-2025 00:31:02 ******/
+/****** Object:  Database [SchedulingSystem]    Script Date: 07-12-2025 02:14:24 ******/
 CREATE DATABASE [SchedulingSystem]
- CONTAINMENT = NONE
- ON  PRIMARY 
+CONTAINMENT = NONE
+ON  PRIMARY
 ( NAME = N'SchedulingSystem', FILENAME = N'E:\SSMS\MSSQL17.MSSQLSERVER\MSSQL\DATA\SchedulingSystem.mdf' , SIZE = 8192KB , MAXSIZE = UNLIMITED, FILEGROWTH = 65536KB )
- LOG ON 
+LOG ON
 ( NAME = N'SchedulingSystem_log', FILENAME = N'E:\SSMS\MSSQL17.MSSQLSERVER\MSSQL\DATA\SchedulingSystem_log.ldf' , SIZE = 8192KB , MAXSIZE = 2048GB , FILEGROWTH = 65536KB )
- WITH CATALOG_COLLATION = DATABASE_DEFAULT, LEDGER = OFF
+WITH CATALOG_COLLATION = DATABASE_DEFAULT, LEDGER = OFF
 GO
 ALTER DATABASE [SchedulingSystem] SET COMPATIBILITY_LEVEL = 170
 GO
@@ -16,67 +16,67 @@ begin
 EXEC [SchedulingSystem].[dbo].[sp_fulltext_database] @action = 'enable'
 end
 GO
-ALTER DATABASE [SchedulingSystem] SET ANSI_NULL_DEFAULT OFF 
+ALTER DATABASE [SchedulingSystem] SET ANSI_NULL_DEFAULT OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET ANSI_NULLS OFF 
+ALTER DATABASE [SchedulingSystem] SET ANSI_NULLS OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET ANSI_PADDING OFF 
+ALTER DATABASE [SchedulingSystem] SET ANSI_PADDING OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET ANSI_WARNINGS OFF 
+ALTER DATABASE [SchedulingSystem] SET ANSI_WARNINGS OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET ARITHABORT OFF 
+ALTER DATABASE [SchedulingSystem] SET ARITHABORT OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET AUTO_CLOSE OFF 
+ALTER DATABASE [SchedulingSystem] SET AUTO_CLOSE OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET AUTO_SHRINK OFF 
+ALTER DATABASE [SchedulingSystem] SET AUTO_SHRINK OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET AUTO_UPDATE_STATISTICS ON 
+ALTER DATABASE [SchedulingSystem] SET AUTO_UPDATE_STATISTICS ON
 GO
-ALTER DATABASE [SchedulingSystem] SET CURSOR_CLOSE_ON_COMMIT OFF 
+ALTER DATABASE [SchedulingSystem] SET CURSOR_CLOSE_ON_COMMIT OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET CURSOR_DEFAULT  GLOBAL 
+ALTER DATABASE [SchedulingSystem] SET CURSOR_DEFAULT  GLOBAL
 GO
-ALTER DATABASE [SchedulingSystem] SET CONCAT_NULL_YIELDS_NULL OFF 
+ALTER DATABASE [SchedulingSystem] SET CONCAT_NULL_YIELDS_NULL OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET NUMERIC_ROUNDABORT OFF 
+ALTER DATABASE [SchedulingSystem] SET NUMERIC_ROUNDABORT OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET QUOTED_IDENTIFIER OFF 
+ALTER DATABASE [SchedulingSystem] SET QUOTED_IDENTIFIER OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET RECURSIVE_TRIGGERS OFF 
+ALTER DATABASE [SchedulingSystem] SET RECURSIVE_TRIGGERS OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET  ENABLE_BROKER 
+ALTER DATABASE [SchedulingSystem] SET  ENABLE_BROKER
 GO
-ALTER DATABASE [SchedulingSystem] SET AUTO_UPDATE_STATISTICS_ASYNC OFF 
+ALTER DATABASE [SchedulingSystem] SET AUTO_UPDATE_STATISTICS_ASYNC OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET DATE_CORRELATION_OPTIMIZATION OFF 
+ALTER DATABASE [SchedulingSystem] SET DATE_CORRELATION_OPTIMIZATION OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET TRUSTWORTHY OFF 
+ALTER DATABASE [SchedulingSystem] SET TRUSTWORTHY OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET ALLOW_SNAPSHOT_ISOLATION OFF 
+ALTER DATABASE [SchedulingSystem] SET ALLOW_SNAPSHOT_ISOLATION OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET PARAMETERIZATION SIMPLE 
+ALTER DATABASE [SchedulingSystem] SET PARAMETERIZATION SIMPLE
 GO
-ALTER DATABASE [SchedulingSystem] SET READ_COMMITTED_SNAPSHOT OFF 
+ALTER DATABASE [SchedulingSystem] SET READ_COMMITTED_SNAPSHOT OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET HONOR_BROKER_PRIORITY OFF 
+ALTER DATABASE [SchedulingSystem] SET HONOR_BROKER_PRIORITY OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET RECOVERY FULL 
+ALTER DATABASE [SchedulingSystem] SET RECOVERY FULL
 GO
-ALTER DATABASE [SchedulingSystem] SET  MULTI_USER 
+ALTER DATABASE [SchedulingSystem] SET  MULTI_USER
 GO
 ALTER DATABASE [SchedulingSystem] SET PAGE_VERIFY CHECKSUM  
 GO
-ALTER DATABASE [SchedulingSystem] SET DB_CHAINING OFF 
+ALTER DATABASE [SchedulingSystem] SET DB_CHAINING OFF
 GO
-ALTER DATABASE [SchedulingSystem] SET FILESTREAM( NON_TRANSACTED_ACCESS = OFF ) 
+ALTER DATABASE [SchedulingSystem] SET FILESTREAM( NON_TRANSACTED_ACCESS = OFF )
 GO
-ALTER DATABASE [SchedulingSystem] SET TARGET_RECOVERY_TIME = 60 SECONDS 
+ALTER DATABASE [SchedulingSystem] SET TARGET_RECOVERY_TIME = 60 SECONDS
 GO
-ALTER DATABASE [SchedulingSystem] SET DELAYED_DURABILITY = DISABLED 
+ALTER DATABASE [SchedulingSystem] SET DELAYED_DURABILITY = DISABLED
 GO
 ALTER DATABASE [SchedulingSystem] SET ACCELERATED_DATABASE_RECOVERY = OFF  
 GO
-ALTER DATABASE [SchedulingSystem] SET OPTIMIZED_LOCKING = OFF 
+ALTER DATABASE [SchedulingSystem] SET OPTIMIZED_LOCKING = OFF
 GO
 EXEC sys.sp_db_vardecimal_storage_format N'SchedulingSystem', N'ON'
 GO
@@ -86,226 +86,226 @@ ALTER DATABASE [SchedulingSystem] SET QUERY_STORE (OPERATION_MODE = READ_WRITE, 
 GO
 USE [SchedulingSystem]
 GO
-/****** Object:  User [nene]    Script Date: 25-11-2025 00:31:03 ******/
+/****** Object:  User [nene]    Script Date: 07-12-2025 02:14:24 ******/
 CREATE USER [nene] FOR LOGIN [nene] WITH DEFAULT_SCHEMA=[dbo]
 GO
 ALTER ROLE [db_owner] ADD MEMBER [nene]
 GO
-/****** Object:  Table [dbo].[employee_expertise]    Script Date: 25-11-2025 00:31:03 ******/
+/****** Object:  Table [dbo].[employee_expertise]    Script Date: 07-12-2025 02:14:25 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 CREATE TABLE [dbo].[employee_expertise](
-	[expertise_id] [int] IDENTITY(1,1) NOT NULL,
-	[employee_id] [int] NOT NULL,
-	[sport_id] [int] NOT NULL,
-	[expertise_level] [varchar](20) NULL,
-PRIMARY KEY CLUSTERED 
+[expertise_id] [int] IDENTITY(1,1) NOT NULL,
+[employee_id] [int] NOT NULL,
+[sport_id] [int] NOT NULL,
+[expertise_level] [varchar](20) NULL,
+PRIMARY KEY CLUSTERED
 (
-	[expertise_id] ASC
+[expertise_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
-UNIQUE NONCLUSTERED 
+UNIQUE NONCLUSTERED
 (
-	[employee_id] ASC,
-	[sport_id] ASC
+[employee_id] ASC,
+[sport_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY]
 GO
-/****** Object:  Table [dbo].[employees]    Script Date: 25-11-2025 00:31:03 ******/
+/****** Object:  Table [dbo].[employees]    Script Date: 07-12-2025 02:14:25 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 CREATE TABLE [dbo].[employees](
-	[employee_id] [int] IDENTITY(1,1) NOT NULL,
-	[user_id] [int] NOT NULL,
-	[first_name] [varchar](50) NOT NULL,
-	[last_name] [varchar](50) NOT NULL,
-	[max_hours_per_week] [int] NULL,
-	[is_supervisor_eligible] [bit] NULL,
-	[active_status] [bit] NULL,
-PRIMARY KEY CLUSTERED 
+[employee_id] [int] IDENTITY(1,1) NOT NULL,
+[user_id] [int] NOT NULL,
+[first_name] [varchar](50) NOT NULL,
+[last_name] [varchar](50) NOT NULL,
+[max_hours_per_week] [int] NULL,
+[is_supervisor_eligible] [bit] NULL,
+[active_status] [bit] NULL,
+PRIMARY KEY CLUSTERED
 (
-	[employee_id] ASC
+[employee_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
-UNIQUE NONCLUSTERED 
+UNIQUE NONCLUSTERED
 (
-	[user_id] ASC
+[user_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY]
 GO
-/****** Object:  Table [dbo].[game_schedules]    Script Date: 25-11-2025 00:31:03 ******/
+/****** Object:  Table [dbo].[game_schedules]    Script Date: 07-12-2025 02:14:25 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 CREATE TABLE [dbo].[game_schedules](
-	[schedule_id] [int] IDENTITY(1,1) NOT NULL,
-	[sport_id] [int] NOT NULL,
-	[game_date] [date] NOT NULL,
-	[start_time] [time](7) NOT NULL,
-	[end_time] [time](7) NOT NULL,
-	[location] [varchar](100) NOT NULL,
-	[required_supervisors] [int] NULL,
-	[required_referees] [int] NOT NULL,
-	[created_by] [int] NOT NULL,
-	[created_at] [datetime] NULL,
-	[schedule_cycle_start] [date] NOT NULL,
-	[schedule_cycle_end] [date] NOT NULL,
-PRIMARY KEY CLUSTERED 
+[schedule_id] [int] IDENTITY(1,1) NOT NULL,
+[sport_id] [int] NOT NULL,
+[game_date] [date] NOT NULL,
+[start_time] [time](7) NOT NULL,
+[end_time] [time](7) NOT NULL,
+[location] [varchar](100) NOT NULL,
+[required_supervisors] [int] NULL,
+[required_referees] [int] NOT NULL,
+[created_by] [int] NOT NULL,
+[created_at] [datetime] NULL,
+[schedule_cycle_start] [date] NOT NULL,
+[schedule_cycle_end] [date] NOT NULL,
+PRIMARY KEY CLUSTERED
 (
-	[schedule_id] ASC
+[schedule_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY]
 GO
-/****** Object:  Table [dbo].[permanent_conflicts]    Script Date: 25-11-2025 00:31:03 ******/
+/****** Object:  Table [dbo].[permanent_conflicts]    Script Date: 07-12-2025 02:14:25 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 CREATE TABLE [dbo].[permanent_conflicts](
-	[conflict_id] [int] IDENTITY(1,1) NOT NULL,
-	[employee_id] [int] NOT NULL,
-	[day_of_week] [varchar](20) NOT NULL,
-	[start_time] [time](7) NOT NULL,
-	[end_time] [time](7) NOT NULL,
-	[reason] [varchar](200) NULL,
-PRIMARY KEY CLUSTERED 
+[conflict_id] [int] IDENTITY(1,1) NOT NULL,
+[employee_id] [int] NOT NULL,
+[day_of_week] [varchar](20) NOT NULL,
+[start_time] [time](7) NOT NULL,
+[end_time] [time](7) NOT NULL,
+[reason] [varchar](200) NULL,
+PRIMARY KEY CLUSTERED
 (
-	[conflict_id] ASC
+[conflict_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY]
 GO
-/****** Object:  Table [dbo].[seasonal_availability]    Script Date: 25-11-2025 00:31:03 ******/
+/****** Object:  Table [dbo].[seasonal_availability]    Script Date: 07-12-2025 02:14:25 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 CREATE TABLE [dbo].[seasonal_availability](
-	[availability_id] [int] IDENTITY(1,1) NOT NULL,
-	[employee_id] [int] NOT NULL,
-	[season] [varchar](20) NOT NULL,
-	[year] [int] NOT NULL,
-	[day_of_week] [varchar](20) NOT NULL,
-	[start_time] [time](7) NOT NULL,
-	[end_time] [time](7) NOT NULL,
-	[is_preferred] [bit] NULL,
-PRIMARY KEY CLUSTERED 
+[availability_id] [int] IDENTITY(1,1) NOT NULL,
+[employee_id] [int] NOT NULL,
+[season] [varchar](20) NOT NULL,
+[year] [int] NOT NULL,
+[day_of_week] [varchar](20) NOT NULL,
+[start_time] [time](7) NOT NULL,
+[end_time] [time](7) NOT NULL,
+[is_preferred] [bit] NULL,
+PRIMARY KEY CLUSTERED
 (
-	[availability_id] ASC
+[availability_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY]
 GO
-/****** Object:  Table [dbo].[shifts]    Script Date: 25-11-2025 00:31:03 ******/
+/****** Object:  Table [dbo].[shifts]    Script Date: 07-12-2025 02:14:25 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 CREATE TABLE [dbo].[shifts](
-	[shift_id] [int] IDENTITY(1,1) NOT NULL,
-	[game_schedule_id] [int] NOT NULL,
-	[position_type] [varchar](20) NOT NULL,
-	[position_number] [int] NOT NULL,
-	[assigned_employee_id] [int] NULL,
-	[recommendation_a_id] [int] NULL,
-	[recommendation_b_id] [int] NULL,
-	[assignment_status] [varchar](20) NULL,
-	[assigned_at] [datetime] NULL,
-PRIMARY KEY CLUSTERED 
+[shift_id] [int] IDENTITY(1,1) NOT NULL,
+[game_schedule_id] [int] NOT NULL,
+[position_type] [varchar](20) NOT NULL,
+[position_number] [int] NOT NULL,
+[assigned_employee_id] [int] NULL,
+[recommendation_a_id] [int] NULL,
+[recommendation_b_id] [int] NULL,
+[assignment_status] [varchar](20) NULL,
+[assigned_at] [datetime] NULL,
+PRIMARY KEY CLUSTERED
 (
-	[shift_id] ASC
+[shift_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
-UNIQUE NONCLUSTERED 
+UNIQUE NONCLUSTERED
 (
-	[game_schedule_id] ASC,
-	[position_type] ASC,
-	[position_number] ASC
+[game_schedule_id] ASC,
+[position_type] ASC,
+[position_number] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY]
 GO
-/****** Object:  Table [dbo].[sports]    Script Date: 25-11-2025 00:31:03 ******/
+/****** Object:  Table [dbo].[sports]    Script Date: 07-12-2025 02:14:25 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 CREATE TABLE [dbo].[sports](
-	[sport_id] [int] IDENTITY(1,1) NOT NULL,
-	[sport_name] [varchar](50) NOT NULL,
-	[default_duration_minutes] [int] NOT NULL,
-	[required_supervisors] [int] NULL,
-	[required_referees] [int] NOT NULL,
-PRIMARY KEY CLUSTERED 
+[sport_id] [int] IDENTITY(1,1) NOT NULL,
+[sport_name] [varchar](50) NOT NULL,
+[default_duration_minutes] [int] NOT NULL,
+[required_supervisors] [int] NULL,
+[required_referees] [int] NOT NULL,
+PRIMARY KEY CLUSTERED
 (
-	[sport_id] ASC
+[sport_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
-UNIQUE NONCLUSTERED 
+UNIQUE NONCLUSTERED
 (
-	[sport_name] ASC
+[sport_name] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY]
 GO
-/****** Object:  Table [dbo].[time_off_requests]    Script Date: 25-11-2025 00:31:03 ******/
+/****** Object:  Table [dbo].[time_off_requests]    Script Date: 07-12-2025 02:14:25 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 CREATE TABLE [dbo].[time_off_requests](
-	[request_id] [int] IDENTITY(1,1) NOT NULL,
-	[employee_id] [int] NOT NULL,
-	[start_date] [date] NOT NULL,
-	[end_date] [date] NOT NULL,
-	[request_status] [varchar](20) NOT NULL,
-	[reason] [varchar](500) NULL,
-	[submitted_at] [datetime] NULL,
-	[reviewed_by] [int] NULL,
-	[reviewed_at] [datetime] NULL,
-PRIMARY KEY CLUSTERED 
+[request_id] [int] IDENTITY(1,1) NOT NULL,
+[employee_id] [int] NOT NULL,
+[start_date] [date] NOT NULL,
+[end_date] [date] NOT NULL,
+[request_status] [varchar](20) NOT NULL,
+[reason] [varchar](500) NULL,
+[submitted_at] [datetime] NULL,
+[reviewed_by] [int] NULL,
+[reviewed_at] [datetime] NULL,
+PRIMARY KEY CLUSTERED
 (
-	[request_id] ASC
+[request_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY]
 GO
-/****** Object:  Table [dbo].[users]    Script Date: 25-11-2025 00:31:03 ******/
+/****** Object:  Table [dbo].[users]    Script Date: 07-12-2025 02:14:25 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 CREATE TABLE [dbo].[users](
-	[user_id] [int] IDENTITY(1,1) NOT NULL,
-	[username] [varchar](50) NOT NULL,
-	[password_hash] [varchar](255) NOT NULL,
-	[role] [varchar](20) NOT NULL,
-	[created_at] [datetime] NULL,
-PRIMARY KEY CLUSTERED 
+[user_id] [int] IDENTITY(1,1) NOT NULL,
+[username] [varchar](50) NOT NULL,
+[password_hash] [varchar](255) NOT NULL,
+[role] [varchar](20) NOT NULL,
+[created_at] [datetime] NULL,
+PRIMARY KEY CLUSTERED
 (
-	[user_id] ASC
+[user_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
-UNIQUE NONCLUSTERED 
+UNIQUE NONCLUSTERED
 (
-	[username] ASC
+[username] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY]
 GO
-/****** Object:  Table [dbo].[weekly_hours]    Script Date: 25-11-2025 00:31:03 ******/
+/****** Object:  Table [dbo].[weekly_hours]    Script Date: 07-12-2025 02:14:25 ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 CREATE TABLE [dbo].[weekly_hours](
-	[tracking_id] [int] IDENTITY(1,1) NOT NULL,
-	[employee_id] [int] NOT NULL,
-	[week_start_date] [date] NOT NULL,
-	[total_scheduled_hours] [decimal](4, 2) NULL,
-	[last_updated] [datetime] NULL,
-PRIMARY KEY CLUSTERED 
+[tracking_id] [int] IDENTITY(1,1) NOT NULL,
+[employee_id] [int] NOT NULL,
+[week_start_date] [date] NOT NULL,
+[total_scheduled_hours] [decimal](4, 2) NULL,
+[last_updated] [datetime] NULL,
+PRIMARY KEY CLUSTERED
 (
-	[tracking_id] ASC
+[tracking_id] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY],
-UNIQUE NONCLUSTERED 
+UNIQUE NONCLUSTERED
 (
-	[employee_id] ASC,
-	[week_start_date] ASC
+[employee_id] ASC,
+[week_start_date] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) ON [PRIMARY]
 GO
@@ -392,5 +392,5 @@ REFERENCES [dbo].[employees] ([employee_id])
 GO
 USE [master]
 GO
-ALTER DATABASE [SchedulingSystem] SET  READ_WRITE 
+ALTER DATABASE [SchedulingSystem] SET  READ_WRITE
 GO
