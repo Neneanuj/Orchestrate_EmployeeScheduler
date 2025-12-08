@@ -1,6 +1,6 @@
 package com.intramural.scheduling.view;
 
-import com.intramural.scheduling.dao.UserDAO;
+import com.intramural.scheduling.dao.UserDao;
 import com.intramural.scheduling.model.User;
 import com.intramural.scheduling.service.AuthenticationService;
 import javafx.geometry.Insets;
@@ -19,14 +19,14 @@ public class UserManagementView {
     private Stage primaryStage;
     private String username;
     private int userId;
-    private UserDAO userDao;
+    private UserDao userDao;
     private VBox userListContainer;
 
     public UserManagementView(Stage primaryStage, String username, int userId) {
         this.primaryStage = primaryStage;
         this.username = username;
         this.userId = userId;
-        this.userDao = new UserDAO();
+        this.userDao = new UserDao();
     }
 
     public Scene createScene() {
@@ -358,7 +358,10 @@ public class UserManagementView {
         Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
         confirmAlert.setTitle("Delete User");
         confirmAlert.setHeaderText("Delete user: " + user.getUsername() + "?");
-        confirmAlert.setContentText("This action cannot be undone. Are you sure?");
+        confirmAlert.setContentText("This action cannot be undone.\n\n" +
+                "If this user has an inactive employee record, it will be automatically deleted along with the user.\n" +
+                "If the employee is active, you must deactivate it first.\n\n" +
+                "Are you sure you want to delete this user?");
         
         confirmAlert.showAndWait().ifPresent(response -> {
             if (response == ButtonType.OK) {
@@ -369,9 +372,27 @@ public class UserManagementView {
                     Alert success = new Alert(Alert.AlertType.INFORMATION);
                     success.setTitle("Success");
                     success.setHeaderText("User Deleted");
-                    success.setContentText("User has been deleted successfully.");
+                    success.setContentText("User and any associated inactive employee records have been deleted successfully.");
                     success.showAndWait();
                     
+                } catch (SQLException e) {
+                    Alert error = new Alert(Alert.AlertType.ERROR);
+                    error.setTitle("Error");
+                    error.setHeaderText("Failed to delete user");
+                    
+                    // Show user-friendly error message
+                    String errorMessage = e.getMessage();
+                    if (errorMessage.contains("active employee")) {
+                        error.setContentText(errorMessage + "\n\nGo to the Employees page and deactivate this employee first, then try deleting the user again.");
+                    } else if (errorMessage.contains("employee record")) {
+                        error.setContentText(errorMessage);
+                    } else if (errorMessage.contains("REFERENCE constraint") || errorMessage.contains("FOREIGN KEY")) {
+                        error.setContentText("Cannot delete user: This user has associated records (shifts, etc.).\nPlease remove or reassign these records first.");
+                    } else {
+                        error.setContentText("Error: " + errorMessage);
+                    }
+                    
+                    error.showAndWait();
                 } catch (Exception e) {
                     Alert error = new Alert(Alert.AlertType.ERROR);
                     error.setTitle("Error");

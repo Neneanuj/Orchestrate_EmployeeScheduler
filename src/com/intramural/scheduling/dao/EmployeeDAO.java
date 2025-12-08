@@ -202,4 +202,42 @@ public class EmployeeDAO {
             }
         }
     }
+    
+    /**
+     * Toggle employee active status (activate/deactivate)
+     */
+    public void toggleActiveStatus(int employeeId, boolean activeStatus) throws SQLException {
+        String sql = "UPDATE employees SET active_status = ? WHERE employee_id = ?";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setInt(1, activeStatus ? BIT_TRUE : BIT_FALSE);
+            stmt.setInt(2, employeeId);
+            int rowsAffected = stmt.executeUpdate();
+            
+            if (rowsAffected == 0) {
+                throw new SQLException("Employee not found with ID: " + employeeId);
+            }
+        }
+    }
+    
+    /**
+     * Get all employees including inactive ones
+     */
+    public List<Employee> getAllIncludingInactive() throws SQLException {
+        List<Employee> employees = new ArrayList<>();
+        String sql = "SELECT * FROM employees ORDER BY last_name, first_name";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            while (rs.next()) {
+                employees.add(extractEmployee(rs));
+            }
+        }
+        
+        return employees;
+    }
 }

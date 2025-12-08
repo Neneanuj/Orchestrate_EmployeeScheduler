@@ -1,6 +1,10 @@
 package com.intramural.scheduling.view;
 
 import com.intramural.scheduling.dao.SportDAO;
+import com.intramural.scheduling.dao.UserDao;
+import com.intramural.scheduling.dao.EmployeeDAO;
+import com.intramural.scheduling.dao.AvailabilityDAO;
+import com.intramural.scheduling.dao.EmployeeExpertiseDAO;
 import com.intramural.scheduling.model.*;
 import com.intramural.scheduling.service.EmployeeManagementService;
 import javafx.geometry.Insets;
@@ -16,17 +20,22 @@ import java.sql.SQLException;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class CreateEmployeeView {
     private Stage dialogStage;
     private TextField firstNameField, lastNameField;
+    private ComboBox<String> userComboBox;
     private CheckBox supervisorCheckBox;
     private Map<DayOfWeek, CheckBox> availabilityCheckboxes;
     private Map<Integer, CheckBox> sportCheckboxes;
     private List<Sport> availableSports;
+    private List<User> availableUsers;
     
     private EmployeeManagementService employeeService;
     private SportDAO sportDAO;
+    private UserDao userDao;
+    private EmployeeDAO employeeDAO;
     private Runnable onSuccess;
 
     public CreateEmployeeView(Stage parentStage) {
@@ -37,10 +46,14 @@ public class CreateEmployeeView {
         
         employeeService = new EmployeeManagementService();
         sportDAO = new SportDAO();
+        userDao = new UserDao();
+        employeeDAO = new EmployeeDAO();
         availabilityCheckboxes = new HashMap<>();
         sportCheckboxes = new HashMap<>();
+        availableUsers = new ArrayList<>();
         
         loadSports();
+        loadAvailableUsers();
     }
     
     public void setOnSuccess(Runnable callback) {
@@ -55,6 +68,26 @@ public class CreateEmployeeView {
         }
     }
     
+    private void loadAvailableUsers() {
+        try {
+            // Get all users
+            List<User> allUsers = userDao.getAllUsers();
+            // Get all employees to filter out users who already have employee records
+            List<Employee> employees = employeeDAO.getAll();
+            Set<Integer> employeeUserIds = employees.stream()
+                .map(Employee::getUserId)
+                .collect(Collectors.toSet());
+            
+            // Filter to only show STAFF users without employee records
+            availableUsers = allUsers.stream()
+                .filter(u -> u.getRole() == User.UserRole.STAFF && !employeeUserIds.contains(u.getUserId()))
+                .collect(Collectors.toList());
+        } catch (SQLException e) {
+            availableUsers = new ArrayList<>();
+            e.printStackTrace();
+        }
+    }
+    
     private List<Sport> getDefaultSports() {
         List<Sport> sports = new ArrayList<>();
         sports.add(new Sport(1, "Soccer", 120, 1, 3));
@@ -66,34 +99,41 @@ public class CreateEmployeeView {
     }
 
     public void show() {
-        ScrollPane scrollPane = new ScrollPane();
-        scrollPane.setFitToWidth(true);
-        
-        VBox root = new VBox(25);
-        root.setPadding(new Insets(30));
+        BorderPane root = new BorderPane();
         root.setStyle("-fx-background-color: white;");
-        root.setPrefWidth(750);
-
-        root.getChildren().addAll(
-            createHeader(),
-            createEmployeeInfoSection(),
-            createAvailabilitySection(),
-            createSportsSection(),
+        
+        // Create a grid layout for compact display
+        GridPane mainGrid = new GridPane();
+        mainGrid.setHgap(15);
+        mainGrid.setVgap(10);
+        mainGrid.setPadding(new Insets(15));
+        
+        // Left column - Employee Info + Availability
+        VBox leftColumn = new VBox(10);
+        leftColumn.getChildren().addAll(
+            createCompactEmployeeInfo(),
+            createCompactAvailability()
+        );
+        
+        // Right column - Sports + Buttons
+        VBox rightColumn = new VBox(10);
+        rightColumn.getChildren().addAll(
+            createCompactSports(),
             createButtonBox()
         );
-
-        scrollPane.setContent(root);
-        Scene scene = new Scene(scrollPane, 800, 900);
         
-        // Make responsive
-        scene.widthProperty().addListener((obs, oldVal, newVal) -> {
-            root.setPrefWidth(Math.min(750, newVal.doubleValue() * 0.9));
-        });
-        scene.heightProperty().addListener((obs, oldVal, newVal) -> {
-            scrollPane.setPrefHeight(newVal.doubleValue());
-        });
+        // Add columns to grid
+        mainGrid.add(leftColumn, 0, 0);
+        mainGrid.add(rightColumn, 1, 0);
+        
+        // Header at top
+        root.setTop(createCompactHeader());
+        root.setCenter(mainGrid);
+        
+        Scene scene = new Scene(root, 900, 600);
         
         dialogStage.setScene(scene);
+        dialogStage.setResizable(false);
         dialogStage.showAndWait();
     }
     
@@ -112,6 +152,143 @@ public class CreateEmployeeView {
         return header;
     }
     
+    private VBox createCompactHeader() {
+        VBox header = new VBox(5);
+        header.setPadding(new Insets(15, 15, 10, 15));
+        header.setStyle("-fx-background-color: #3b82f6;");
+        
+        Label titleLabel = new Label("➕ Create New Employee");
+        titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 20));
+        titleLabel.setStyle("-fx-text-fill: white;");
+
+        header.getChildren().add(titleLabel);
+        return header;
+    }
+    
+    private VBox createCompactEmployeeInfo() {
+        VBox section = new VBox(8);
+        section.setPadding(new Insets(10));
+        section.setStyle("-fx-background-color: #f9fafb; -fx-background-radius: 8;");
+        section.setPrefWidth(420);
+        
+        Label sectionTitle = new Label("📋 Employee Info");
+        sectionTitle.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+
+        // User Selection
+        Label userLabel = new Label("User Account*:");
+        userLabel.setFont(Font.font("Arial", FontWeight.SEMI_BOLD, 12));
+        
+        userComboBox = new ComboBox<>();
+        userComboBox.setPromptText("Select user...");
+        userComboBox.setPrefWidth(400);
+        
+        for (User user : availableUsers) {
+            userComboBox.getItems().add(user.getUsername() + " (ID: " + user.getUserId() + ")");
+        }
+
+        // Name fields in horizontal layout
+        HBox nameRow = new HBox(10);
+        firstNameField = createCompactTextField("First Name*");
+        lastNameField = createCompactTextField("Last Name*");
+        
+        firstNameField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && !newVal.matches("[a-zA-Z\\s]*")) {
+                firstNameField.setText(oldVal);
+            }
+        });
+        
+        lastNameField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && !newVal.matches("[a-zA-Z\\s]*")) {
+                lastNameField.setText(oldVal);
+            }
+        });
+        
+        HBox.setHgrow(firstNameField, Priority.ALWAYS);
+        HBox.setHgrow(lastNameField, Priority.ALWAYS);
+        nameRow.getChildren().addAll(firstNameField, lastNameField);
+
+        supervisorCheckBox = new CheckBox("Supervisor Eligible");
+        supervisorCheckBox.setFont(Font.font("Arial", 12));
+
+        section.getChildren().addAll(sectionTitle, userLabel, userComboBox, nameRow, supervisorCheckBox);
+        return section;
+    }
+    
+    private VBox createCompactAvailability() {
+        VBox section = new VBox(8);
+        section.setPadding(new Insets(10));
+        section.setStyle("-fx-background-color: #eff6ff; -fx-background-radius: 8;");
+        section.setPrefWidth(420);
+        
+        Label sectionTitle = new Label("📅 Availability (6PM-12AM)");
+        sectionTitle.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        
+        // Quick selection buttons
+        HBox quickButtons = new HBox(5);
+        Button allBtn = createSmallButton("All", "#3b82f6");
+        allBtn.setOnAction(e -> selectAll());
+        Button weekdaysBtn = createSmallButton("Weekdays", "#10b981");
+        weekdaysBtn.setOnAction(e -> selectWeekdays());
+        Button weekendsBtn = createSmallButton("Weekends", "#f59e0b");
+        weekendsBtn.setOnAction(e -> selectWeekends());
+        Button clearBtn = createSmallButton("Clear", "#ef4444");
+        clearBtn.setOnAction(e -> clearAll());
+        quickButtons.getChildren().addAll(allBtn, weekdaysBtn, weekendsBtn, clearBtn);
+        
+        // Compact day checkboxes
+        FlowPane daysFlow = new FlowPane();
+        daysFlow.setHgap(10);
+        daysFlow.setVgap(8);
+        
+        for (DayOfWeek day : DayOfWeek.values()) {
+            CheckBox cb = new CheckBox(day.toString().substring(0, 3));
+            cb.setFont(Font.font("Arial", 11));
+            availabilityCheckboxes.put(day, cb);
+            daysFlow.getChildren().add(cb);
+        }
+        
+        section.getChildren().addAll(sectionTitle, quickButtons, daysFlow);
+        return section;
+    }
+    
+    private VBox createCompactSports() {
+        VBox section = new VBox(8);
+        section.setPadding(new Insets(10));
+        section.setStyle("-fx-background-color: #f0fdf4; -fx-background-radius: 8;");
+        section.setPrefWidth(420);
+        
+        Label sectionTitle = new Label("⚽ Sports");
+        sectionTitle.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        
+        FlowPane sportsFlow = new FlowPane();
+        sportsFlow.setHgap(10);
+        sportsFlow.setVgap(8);
+        
+        for (Sport sport : availableSports) {
+            CheckBox sportCheck = new CheckBox(sport.getSportName());
+            sportCheck.setFont(Font.font("Arial", 11));
+            sportCheckboxes.put(sport.getSportId(), sportCheck);
+            sportsFlow.getChildren().add(sportCheck);
+        }
+        
+        section.getChildren().addAll(sectionTitle, sportsFlow);
+        return section;
+    }
+    
+    private TextField createCompactTextField(String prompt) {
+        TextField field = new TextField();
+        field.setPromptText(prompt);
+        field.setStyle("-fx-font-size: 12px; -fx-padding: 6;");
+        return field;
+    }
+    
+    private Button createSmallButton(String text, String color) {
+        Button btn = new Button(text);
+        btn.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white; " +
+                    "-fx-font-size: 10px; -fx-padding: 4 8; -fx-background-radius: 4;");
+        return btn;
+    }
+    
     private VBox createEmployeeInfoSection() {
         VBox section = new VBox(15);
         section.setPadding(new Insets(20));
@@ -119,6 +296,23 @@ public class CreateEmployeeView {
         
         Label sectionTitle = new Label("📋 Employee Information");
         sectionTitle.setFont(Font.font("Arial", FontWeight.BOLD, 18));
+
+        // User Selection Dropdown
+        Label userLabel = new Label("Select User Account*:");
+        userLabel.setFont(Font.font("Arial", FontWeight.SEMI_BOLD, 14));
+        
+        userComboBox = new ComboBox<>();
+        userComboBox.setPromptText("Choose existing user...");
+        userComboBox.setPrefWidth(400);
+        userComboBox.setStyle("-fx-font-size: 14px;");
+        
+        // Populate user dropdown
+        for (User user : availableUsers) {
+            userComboBox.getItems().add(user.getUsername() + " (ID: " + user.getUserId() + ")");
+        }
+        
+        VBox userBox = new VBox(8);
+        userBox.getChildren().addAll(userLabel, userComboBox);
 
         HBox nameRow = new HBox(15);
         firstNameField = createStyledTextField("First Name*", "John");
@@ -154,7 +348,7 @@ public class CreateEmployeeView {
         supervisorCheckBox = new CheckBox("Supervisor Eligible");
         supervisorCheckBox.setFont(Font.font("Arial", FontWeight.SEMI_BOLD, 14));
 
-        section.getChildren().addAll(sectionTitle, nameRow, maxHoursRow, supervisorCheckBox);
+        section.getChildren().addAll(sectionTitle, userBox, nameRow, maxHoursRow, supervisorCheckBox);
         return section;
     }
     
@@ -290,21 +484,53 @@ public class CreateEmployeeView {
         // Validate
         if (!validate()) return;
         
+        // Get selected user
+        int selectedUserIndex = userComboBox.getSelectionModel().getSelectedIndex();
+        if (selectedUserIndex < 0) {
+            showError("Please select a user account");
+            return;
+        }
+        User selectedUser = availableUsers.get(selectedUserIndex);
+        
         // Collect data
         List<Availability.Seasonal> availabilities = collectAvailability();
         List<Integer> selectedSports = collectSports();
         
-        // Call the ONE method from service
+        // Create employee linked to the selected user
         try {
-            Employee employee = employeeService.createEmployee(
-                firstNameField.getText().trim(),
-                lastNameField.getText().trim(),
-                supervisorCheckBox.isSelected(),
-                availabilities,
-                selectedSports
-            );
+            Employee employee = new Employee(0, selectedUser.getUserId(), 
+                firstNameField.getText().trim(), 
+                lastNameField.getText().trim());
+            employee.setSupervisorEligible(supervisorCheckBox.isSelected());
+            employee.setMaxHoursPerWeek(20);
+            employee.setActiveStatus(true);
             
-            showSuccess("Employee " + employee.getFullName() + " created successfully!");
+            // Insert employee
+            employeeDAO.insert(employee);
+            
+            // Save availability
+            AvailabilityDAO availabilityDAO = new AvailabilityDAO();
+            if (availabilities != null && !availabilities.isEmpty()) {
+                for (Availability.Seasonal avail : availabilities) {
+                    Availability.Seasonal availWithId = new Availability.Seasonal(
+                        employee.getEmployeeId(),
+                        avail.getSeason(),
+                        avail.getYear(),
+                        avail.getDayOfWeek(),
+                        avail.getStartTime(),
+                        avail.getEndTime()
+                    );
+                    availabilityDAO.insert(availWithId);
+                }
+            }
+            
+            // Save sport expertise
+            EmployeeExpertiseDAO expertiseDAO = new EmployeeExpertiseDAO();
+            for (Integer sportId : selectedSports) {
+                expertiseDAO.insert(employee.getEmployeeId(), sportId, Employee.ExpertiseLevel.INTERMEDIATE);
+            }
+            
+            showSuccess("Employee " + employee.getFullName() + " linked to user '" + selectedUser.getUsername() + "' successfully!");
             
             if (onSuccess != null) onSuccess.run();
             dialogStage.close();

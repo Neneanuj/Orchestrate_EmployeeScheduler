@@ -15,7 +15,7 @@ public class TestLogin {
             
             // Test finding user
             System.out.println("2. Testing UserDao.findByUsername...");
-            UserDAO userDao = new UserDAO();
+            UserDao userDao = new UserDao();
             User user = userDao.findByUsername("admin");
             if (user != null) {
                 System.out.println("   ✓ User found: " + user.getUsername());
