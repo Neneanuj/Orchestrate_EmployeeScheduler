@@ -254,6 +254,24 @@ public class UserManagementView {
                         return null;
                     }
                     
+                    if (username.matches("[0-9]+")) {
+                        Alert alert = new Alert(Alert.AlertType.ERROR);
+                        alert.setTitle("Validation Error");
+                        alert.setHeaderText("Invalid username");
+                        alert.setContentText("Username cannot be numeric only.");
+                        alert.showAndWait();
+                        return null;
+                    }
+                    
+                    if (password.length() < 6) {
+                        Alert alert = new Alert(Alert.AlertType.ERROR);
+                        alert.setTitle("Validation Error");
+                        alert.setHeaderText("Password too short");
+                        alert.setContentText("Password must be at least 6 characters long.");
+                        alert.showAndWait();
+                        return null;
+                    }
+                    
                     // Hash the password
                     AuthenticationService authService = new AuthenticationService();
                     String hashedPassword = authService.hashPassword(password);

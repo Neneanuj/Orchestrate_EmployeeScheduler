@@ -567,6 +567,18 @@ public class EmployeesPage {
                     if (newFirstName.isEmpty() || newLastName.isEmpty()) {
                         throw new IllegalArgumentException("First name and last name cannot be empty");
                     }
+                    if (!newFirstName.matches("[a-zA-Z\\s]+")) {
+                        throw new IllegalArgumentException("First name must contain only letters and spaces");
+                    }
+                    if (newFirstName.matches("[0-9]+")) {
+                        throw new IllegalArgumentException("First name cannot be numeric only");
+                    }
+                    if (!newLastName.matches("[a-zA-Z\\s]+")) {
+                        throw new IllegalArgumentException("Last name must contain only letters and spaces");
+                    }
+                    if (newLastName.matches("[0-9]+")) {
+                        throw new IllegalArgumentException("Last name cannot be numeric only");
+                    }
                     
                     // Update employee
                     employee.setFirstName(newFirstName);

@@ -483,7 +483,7 @@ public class AdminDashboard {
             for (Schedule.Shift shift : shifts) {
                 if (shift.getAssignedEmployeeId() != null) {
                     Employee emp = empDAO.getById(shift.getAssignedEmployeeId());
-                    if (emp != null) {
+                    if (emp != null && emp.isActiveStatus()) {
                         HBox assignmentRow = new HBox(15);
                         assignmentRow.setAlignment(Pos.CENTER_LEFT);
                         assignmentRow.setPadding(new Insets(10));
@@ -764,7 +764,7 @@ public class AdminDashboard {
         teamMembersContent.getChildren().clear();
         
         try {
-            List<Employee> employees = controller.getAllEmployees();
+            List<Employee> employees = controller.getActiveEmployees();
             
             if (employees.isEmpty()) {
                 Label emptyLabel = new Label("No employees yet. Click '+ Add' to add your first employee!");
