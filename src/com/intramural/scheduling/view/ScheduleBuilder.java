@@ -89,8 +89,14 @@ public class ScheduleBuilder {
             EmployeesPage employeesView = new EmployeesPage(primaryStage, username, userId);
             primaryStage.setScene(employeesView.createScene());
         });
+        
+        Button usersBtn = createNavButton("👤 Users", false);
+        usersBtn.setOnAction(e -> {
+            UserManagementView userView = new UserManagementView(primaryStage, username, userId);
+            primaryStage.setScene(userView.createScene());
+        });
 
-        navButtons.getChildren().addAll(dashboardBtn, scheduleBtn, employeesBtn);
+        navButtons.getChildren().addAll(dashboardBtn, scheduleBtn, employeesBtn, usersBtn);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);

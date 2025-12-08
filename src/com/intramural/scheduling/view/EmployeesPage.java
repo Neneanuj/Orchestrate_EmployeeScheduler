@@ -4,9 +4,11 @@ import com.intramural.scheduling.dao.AvailabilityDAO;
 import com.intramural.scheduling.dao.EmployeeDAO;
 import com.intramural.scheduling.dao.EmployeeExpertiseDAO;
 import com.intramural.scheduling.dao.SportDAO;
+import com.intramural.scheduling.dao.UserDao;
 import com.intramural.scheduling.model.Availability;
 import com.intramural.scheduling.model.Employee;
 import com.intramural.scheduling.model.Sport;
+import com.intramural.scheduling.model.User;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -19,6 +21,7 @@ import javafx.stage.Stage;
 import java.sql.SQLException;
 import java.time.DayOfWeek;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * EmployeesPage - UPDATED with expandable availability dropdown for each employee
@@ -29,6 +32,7 @@ public class EmployeesPage {
     private String username;
     private int userId;
     private EmployeeDAO employeeDAO;
+    private UserDao userDao;
     private GridPane employeeGrid;
     
     // NEW: Track expanded employees
@@ -39,6 +43,7 @@ public class EmployeesPage {
         this.username = username;
         this.userId = userId;
         this.employeeDAO = new EmployeeDAO();
+        this.userDao = new UserDao();
     }
 
     public Scene createScene() {
@@ -94,8 +99,14 @@ public class EmployeesPage {
         });
         
         Button employeesBtn = createNavButton("👥 Employees", true);
+        
+        Button usersBtn = createNavButton("👤 Users", false);
+        usersBtn.setOnAction(e -> {
+            UserManagementView userView = new UserManagementView(primaryStage, username, userId);
+            primaryStage.setScene(userView.createScene());
+        });
 
-        navButtons.getChildren().addAll(dashboardBtn, scheduleBtn, employeesBtn);
+        navButtons.getChildren().addAll(dashboardBtn, scheduleBtn, employeesBtn, usersBtn);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -170,18 +181,30 @@ public class EmployeesPage {
             long supervisors = activeEmployees.stream()
                 .filter(Employee::isSupervisorEligible)
                 .count();
+            
+            // Count STAFF users without employee records
+            List<User> allUsers = userDao.getAllUsers();
+            Set<Integer> employeeUserIds = allEmployees.stream()
+                .map(Employee::getUserId)
+                .collect(Collectors.toSet());
+            long usersWithoutEmployees = allUsers.stream()
+                .filter(u -> u.getRole() == User.UserRole.STAFF)
+                .filter(u -> !employeeUserIds.contains(u.getUserId()))
+                .count();
 
             VBox card1 = createStatCard("👥", "#dbeafe", "Total", String.valueOf(allEmployees.size()));
             VBox card2 = createStatCard("✅", "#d1fae5", "Active", String.valueOf(activeEmployees.size()));
             VBox card3 = createStatCard("⊗", "#fee2e2", "Inactive", String.valueOf(inactive));
             VBox card4 = createStatCard("🏅", "#fef3c7", "Supervisors", String.valueOf(supervisors));
+            VBox card5 = createStatCard("⚠️", "#fed7aa", "Users w/o Employee", String.valueOf(usersWithoutEmployees));
 
             HBox.setHgrow(card1, Priority.ALWAYS);
             HBox.setHgrow(card2, Priority.ALWAYS);
             HBox.setHgrow(card3, Priority.ALWAYS);
             HBox.setHgrow(card4, Priority.ALWAYS);
+            HBox.setHgrow(card5, Priority.ALWAYS);
 
-            statsBox.getChildren().addAll(card1, card2, card3, card4);
+            statsBox.getChildren().addAll(card1, card2, card3, card4, card5);
         } catch (SQLException e) {
             Label errorLabel = new Label("Error loading stats");
             statsBox.getChildren().add(errorLabel);
@@ -231,7 +254,7 @@ public class EmployeesPage {
         employeeGrid.getChildren().clear();
         
         try {
-            List<Employee> employees = employeeDAO.getAllActive();
+            List<Employee> employees = employeeDAO.getAllIncludingInactive();
             
             if (employees.isEmpty()) {
                 Label emptyLabel = new Label("No employees yet. Click '+ Add Employee' to add one.");
@@ -264,8 +287,10 @@ public class EmployeesPage {
      */
     private VBox createExpandableEmployeeCard(Employee employee) {
         VBox card = new VBox();
-        card.setStyle("-fx-background-color: #f9fafb; -fx-background-radius: 8; " +
-                "-fx-border-color: #e5e7eb; -fx-border-radius: 8;");
+        String cardStyle = employee.isActiveStatus() 
+            ? "-fx-background-color: #f9fafb; -fx-background-radius: 8; -fx-border-color: #e5e7eb; -fx-border-radius: 8;"
+            : "-fx-background-color: #f3f4f6; -fx-background-radius: 8; -fx-border-color: #d1d5db; -fx-border-radius: 8; -fx-opacity: 0.7;";
+        card.setStyle(cardStyle);
         card.setPrefWidth(400);
 
         // Header (always visible, clickable)
@@ -320,11 +345,11 @@ public class EmployeesPage {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Label badge = new Label(employee.isActiveStatus() ? "Active" : "Inactive");
+        Label badge = new Label(employee.isActiveStatus() ? "✓ Active" : "⊘ Inactive");
         badge.setFont(Font.font("Arial", FontWeight.BOLD, 11));
         badge.setPadding(new Insets(4, 10, 4, 10));
         badge.setStyle(employee.isActiveStatus() 
-            ? "-fx-background-color: #3498db; -fx-text-fill: white; -fx-background-radius: 12;"
+            ? "-fx-background-color: #dcfce7; -fx-text-fill: #16a34a; -fx-background-radius: 12;"
             : "-fx-background-color: #fee2e2; -fx-text-fill: #dc2626; -fx-background-radius: 12;");
 
         header.getChildren().addAll(expandIcon, avatar, nameBox, spacer, badge);
@@ -470,7 +495,7 @@ public class EmployeesPage {
             details.getChildren().add(errorLabel);
         }
 
-        // Edit and Delete buttons
+        // Edit and Status toggle buttons
         HBox buttonBox = new HBox(10);
         buttonBox.setAlignment(Pos.CENTER_RIGHT);
         buttonBox.setPadding(new Insets(10, 0, 0, 0));
@@ -481,13 +506,13 @@ public class EmployeesPage {
                 "-fx-font-size: 12px; -fx-font-weight: bold;");
         editBtn.setOnAction(e -> editEmployee(employee));
         
-        Button deleteBtn = new Button("🗑️ Delete");
-        deleteBtn.setStyle("-fx-background-color: #ef4444; -fx-text-fill: white; " +
+        Button statusBtn = new Button(employee.isActiveStatus() ? "🚫 Deactivate" : "✅ Activate");
+        statusBtn.setStyle("-fx-background-color: " + (employee.isActiveStatus() ? "#ef4444" : "#22c55e") + "; -fx-text-fill: white; " +
                 "-fx-background-radius: 6; -fx-padding: 8 16; -fx-cursor: hand; " +
                 "-fx-font-size: 12px; -fx-font-weight: bold;");
-        deleteBtn.setOnAction(e -> deleteEmployee(employee));
+        statusBtn.setOnAction(e -> toggleEmployeeStatus(employee));
         
-        buttonBox.getChildren().addAll(editBtn, deleteBtn);
+        buttonBox.getChildren().addAll(editBtn, statusBtn);
         details.getChildren().add(buttonBox);
 
         return details;
@@ -533,20 +558,57 @@ public class EmployeesPage {
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == saveButtonType) {
                 try {
-                    employee.setFirstName(firstNameField.getText());
-                    employee.setLastName(lastNameField.getText());
+                    String oldFirstName = employee.getFirstName();
+                    String oldLastName = employee.getLastName();
+                    String newFirstName = firstNameField.getText().trim();
+                    String newLastName = lastNameField.getText().trim();
+                    
+                    // Validate names
+                    if (newFirstName.isEmpty() || newLastName.isEmpty()) {
+                        throw new IllegalArgumentException("First name and last name cannot be empty");
+                    }
+                    
+                    // Update employee
+                    employee.setFirstName(newFirstName);
+                    employee.setLastName(newLastName);
                     employee.setMaxHoursPerWeek(Integer.parseInt(maxHoursField.getText()));
                     employee.setSupervisorEligible(supervisorCheckBox.isSelected());
                     employee.setActiveStatus(activeCheckBox.isSelected());
                     
                     employeeDAO.updateEmployee(employee);
+                    
+                    // If name changed, update the associated user's username
+                    if (!newFirstName.equals(oldFirstName) || !newLastName.equals(oldLastName)) {
+                        try {
+                            User user = userDao.findById(employee.getUserId());
+                            if (user != null) {
+                                // Generate new username from name (firstname.lastname)
+                                String newUsername = (newFirstName + "." + newLastName).toLowerCase();
+                                user.setUsername(newUsername);
+                                userDao.updateUser(user);
+                            }
+                        } catch (Exception userEx) {
+                            // Log but don't fail the whole operation
+                            System.err.println("Warning: Failed to update associated user: " + userEx.getMessage());
+                        }
+                    }
+                    
                     refreshEmployeeList();
                     
                     Alert success = new Alert(Alert.AlertType.INFORMATION);
                     success.setTitle("Success");
                     success.setHeaderText("Employee Updated");
-                    success.setContentText("Employee information has been updated successfully.");
+                    success.setContentText("Employee information has been updated successfully." + 
+                        ((!newFirstName.equals(oldFirstName) || !newLastName.equals(oldLastName)) ? 
+                        "\n\nNote: The associated user's username has also been updated to: " + 
+                        (newFirstName + "." + newLastName).toLowerCase() : ""));
                     success.showAndWait();
+                } catch (NumberFormatException e) {
+                    Alert error = new Alert(Alert.AlertType.ERROR);
+                    error.setTitle("Error");
+                    error.setHeaderText("Invalid Input");
+                    error.setContentText("Max Hours/Week must be a valid number.");
+                    error.showAndWait();
                 } catch (Exception e) {
                     Alert error = new Alert(Alert.AlertType.ERROR);
                     error.setTitle("Error");
@@ -562,29 +624,34 @@ public class EmployeesPage {
     }
     
     /**
-     * Delete employee
+     * Toggle employee active status
      */
-    private void deleteEmployee(Employee employee) {
+    private void toggleEmployeeStatus(Employee employee) {
+        boolean newStatus = !employee.isActiveStatus();
+        String action = newStatus ? "activate" : "deactivate";
+        
         Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
-        confirmAlert.setTitle("Deactivate Employee");
-        confirmAlert.setHeaderText("Deactivate " + employee.getFirstName() + " " + employee.getLastName() + "?");
-        confirmAlert.setContentText("This will mark the employee as inactive. They will no longer appear in active employee lists.");
+        confirmAlert.setTitle(action.substring(0, 1).toUpperCase() + action.substring(1) + " Employee");
+        confirmAlert.setHeaderText(action.substring(0, 1).toUpperCase() + action.substring(1) + " " + employee.getFirstName() + " " + employee.getLastName() + "?");
+        confirmAlert.setContentText(newStatus ? 
+            "This will activate the employee and they will appear in active employee lists." :
+            "This will mark the employee as inactive. They will no longer appear in active employee lists.");
         
         confirmAlert.showAndWait().ifPresent(response -> {
             if (response == ButtonType.OK) {
                 try {
-                    employeeDAO.deleteEmployee(employee.getEmployeeId());
+                    employeeDAO.toggleActiveStatus(employee.getEmployeeId(), newStatus);
                     refreshEmployeeList();
                     
                     Alert success = new Alert(Alert.AlertType.INFORMATION);
                     success.setTitle("Success");
-                    success.setHeaderText("Employee Deactivated");
-                    success.setContentText("Employee has been deactivated successfully.");
+                    success.setHeaderText("Employee " + (newStatus ? "Activated" : "Deactivated"));
+                    success.setContentText("Employee has been " + action + "d successfully.");
                     success.showAndWait();
                 } catch (Exception e) {
                     Alert error = new Alert(Alert.AlertType.ERROR);
                     error.setTitle("Error");
-                    error.setHeaderText("Failed to deactivate employee");
+                    error.setHeaderText("Failed to " + action + " employee");
                     error.setContentText(e.getMessage());
                     error.showAndWait();
                 }
