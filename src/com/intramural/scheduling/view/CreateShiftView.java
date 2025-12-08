@@ -415,6 +415,9 @@ public class CreateShiftView {
         if (location.isEmpty()) {
             locationError.setText("Location is required");
             valid = false;
+        } else if (!location.matches(".*[a-zA-Z].*")) {
+            locationError.setText("Location must contain at least one letter");
+            valid = false;
         } else if (location.length() > 100) {
             locationError.setText("Location must be 100 characters or less");
             valid = false;

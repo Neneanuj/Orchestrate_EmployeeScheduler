@@ -161,4 +161,45 @@ public class EmployeeDAO {
         
         return employee;
     }
+    
+    public void updateEmployee(Employee employee) throws SQLException {
+        if (employee == null) {
+            throw new IllegalArgumentException("Employee cannot be null");
+        }
+        
+        String sql = "UPDATE employees SET first_name = ?, last_name = ?, " +
+                    "max_hours_per_week = ?, is_supervisor_eligible = ?, active_status = ? " +
+                    "WHERE employee_id = ?";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setString(1, employee.getFirstName());
+            stmt.setString(2, employee.getLastName());
+            stmt.setInt(3, employee.getMaxHoursPerWeek());
+            stmt.setInt(4, employee.isSupervisorEligible() ? BIT_TRUE : BIT_FALSE);
+            stmt.setInt(5, employee.isActiveStatus() ? BIT_TRUE : BIT_FALSE);
+            stmt.setInt(6, employee.getEmployeeId());
+            
+            stmt.executeUpdate();
+        }
+    }
+    
+    public void deleteEmployee(int employeeId) throws SQLException {
+        // Instead of hard delete, set active_status to false (soft delete)
+        // This preserves data integrity with foreign key relationships
+        String sql = "UPDATE employees SET active_status = ? WHERE employee_id = ?";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setInt(1, BIT_FALSE);
+            stmt.setInt(2, employeeId);
+            int rowsAffected = stmt.executeUpdate();
+            
+            if (rowsAffected == 0) {
+                throw new SQLException("Employee not found with ID: " + employeeId);
+            }
+        }
+    }
 }

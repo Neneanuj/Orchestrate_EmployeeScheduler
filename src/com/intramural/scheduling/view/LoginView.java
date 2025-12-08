@@ -33,6 +33,13 @@ public class LoginView {
         root.setCenter(centerBox);
 
         Scene scene = new Scene(root, 1000, 700);
+        
+        // Make responsive - adjust on window resize
+        scene.widthProperty().addListener((obs, oldVal, newVal) -> {
+            double width = newVal.doubleValue();
+            centerBox.setMaxWidth(Math.min(450, width * 0.9));
+        });
+        
         return scene;
     }
 
@@ -41,6 +48,7 @@ public class LoginView {
         vbox.setAlignment(Pos.CENTER);
         vbox.setPadding(new Insets(50));
         vbox.setMaxWidth(450);
+        vbox.setPrefWidth(Region.USE_COMPUTED_SIZE);
         vbox.setStyle("-fx-background-color: white; " +
                       "-fx-background-radius: 10; " +
                       "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 10, 0, 0, 5);");
@@ -123,6 +131,10 @@ public class LoginView {
         // Forgot password link
         Hyperlink forgotPasswordLink = new Hyperlink("Forgot password?");
         forgotPasswordLink.setStyle("-fx-text-fill: #3498db; -fx-font-size: 12px;");
+        forgotPasswordLink.setOnAction(e -> {
+            ForgotPasswordView forgotPasswordView = new ForgotPasswordView(primaryStage);
+            primaryStage.setScene(forgotPasswordView.createScene());
+        });
 
         // Add all elements
         vbox.getChildren().addAll(
@@ -191,9 +203,20 @@ public class LoginView {
     }
 
     private void openDashboard(User user) {
-        AdminDashboard dashboard = new AdminDashboard(primaryStage, user.getUsername(), user.getUserId());
-        Scene dashboardScene = dashboard.createScene();
+        Scene dashboardScene;
+        
+        // Route based on user role
+        if (user.getRole() == User.UserRole.STAFF) {
+            StaffDashboard staffDashboard = new StaffDashboard(primaryStage, user.getUsername(), user.getUserId());
+            dashboardScene = staffDashboard.createScene();
+            primaryStage.setTitle("Employee Scheduling System - Staff Dashboard");
+        } else {
+            // Admin or Supervisor goes to Admin Dashboard
+            AdminDashboard dashboard = new AdminDashboard(primaryStage, user.getUsername(), user.getUserId());
+            dashboardScene = dashboard.createScene();
+            primaryStage.setTitle("Employee Scheduling System - Dashboard");
+        }
+        
         primaryStage.setScene(dashboardScene);
-        primaryStage.setTitle("Employee Scheduling System - Dashboard");
     }
 }
