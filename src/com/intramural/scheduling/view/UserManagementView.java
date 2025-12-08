@@ -1,6 +1,6 @@
 package com.intramural.scheduling.view;
 
-import com.intramural.scheduling.dao.UserDao;
+import com.intramural.scheduling.dao.UserDAO;
 import com.intramural.scheduling.model.User;
 import com.intramural.scheduling.service.AuthenticationService;
 import javafx.geometry.Insets;
@@ -19,14 +19,14 @@ public class UserManagementView {
     private Stage primaryStage;
     private String username;
     private int userId;
-    private UserDao userDao;
+    private UserDAO userDao;
     private VBox userListContainer;
 
     public UserManagementView(Stage primaryStage, String username, int userId) {
         this.primaryStage = primaryStage;
         this.username = username;
         this.userId = userId;
-        this.userDao = new UserDao();
+        this.userDao = new UserDAO();
     }
 
     public Scene createScene() {

@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 public class EmployeeManagementService {
-    private UserDao userDAO;
+    private UserDAO userDAO;
     private EmployeeDAO employeeDAO;
     private AvailabilityDAO availabilityDAO;
     private WeeklyHoursDAO weeklyHoursDAO;
@@ -16,7 +16,7 @@ public class EmployeeManagementService {
     private AuthenticationService authService;
     
     public EmployeeManagementService() {
-        this.userDAO = new UserDao();
+        this.userDAO = new UserDAO();
         this.employeeDAO = new EmployeeDAO();
         this.availabilityDAO = new AvailabilityDAO();
         this.weeklyHoursDAO = new WeeklyHoursDAO();

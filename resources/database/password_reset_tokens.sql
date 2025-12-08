@@ -1,7 +1,7 @@
 -- Create PasswordResetTokens table for forgot password functionality
 -- This table stores password reset tokens with expiry times
 
-USE EmployeeScheduling;
+USE SchedulingSystem;
 GO
 
 -- Drop table if exists (for re-running the script)
