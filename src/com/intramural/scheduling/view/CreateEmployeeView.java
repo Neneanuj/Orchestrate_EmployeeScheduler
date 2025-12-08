@@ -553,12 +553,20 @@ public class CreateEmployeeView {
             showError("First name must contain only letters and spaces");
             return false;
         }
+        if (firstName.matches("[0-9]+")) {
+            showError("First name cannot be numeric only");
+            return false;
+        }
         if (lastName.isEmpty()) {
             showError("Last name is required");
             return false;
         }
         if (!lastName.matches("[a-zA-Z\\s]+")) {
             showError("Last name must contain only letters and spaces");
+            return false;
+        }
+        if (lastName.matches("[0-9]+")) {
+            showError("Last name cannot be numeric only");
             return false;
         }
         if (!availabilityCheckboxes.values().stream().anyMatch(CheckBox::isSelected)) {
