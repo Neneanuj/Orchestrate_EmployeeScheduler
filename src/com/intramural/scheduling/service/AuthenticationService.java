@@ -1,6 +1,6 @@
 package com.intramural.scheduling.service;
 
-import com.intramural.scheduling.dao.UserDao;
+import com.intramural.scheduling.dao.UserDAO;
 import com.intramural.scheduling.model.User;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -8,11 +8,11 @@ import java.sql.SQLException;
 import java.util.Base64;
 
 public class AuthenticationService {
-    private UserDao userDAO;
+    private UserDAO userDAO;
     private User currentUser;
     
     public AuthenticationService() {
-        this.userDAO = new UserDao();
+        this.userDAO = new UserDAO();
         this.currentUser = null;
     }
     
